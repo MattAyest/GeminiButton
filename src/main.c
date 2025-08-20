@@ -4,7 +4,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "freertos/semphr.h"
 #include "esp_log.h"
 #include "nvs_flash.h"
 #include "esp_netif.h"
@@ -23,20 +22,17 @@
 #define WIFI_PASS      CONFIG_WIFI_PASSWORD
 // =================================================================================
 
-#define WIFI_MAXIMUM_RETRY  5
-#define BUTTON_GPIO         0
+#define WIFI_MAXIMUM_RETRY   5
 #define GEMINI_TASK_STACK_SIZE 10240
 #define API_CALL_MAX_RETRIES 3
+#define SERIAL_BUFFER_SIZE   256
 
 
 static const char *TAG = "gemini_api_call";
 
-#define MODEL_NAME "gemini-1.5-flash"
+#define MODEL_NAME "gemini-2.0-flash"
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
-
-/* FreeRTOS semaphore to trigger the Gemini API call */
-static SemaphoreHandle_t s_gemini_semaphore;
 
 /* The event group allows multiple bits for each event, but we only care about two events:
  * - we are connected to the AP with an IP
@@ -45,14 +41,6 @@ static SemaphoreHandle_t s_gemini_semaphore;
 #define WIFI_FAIL_BIT      BIT1
 static int s_retry_num = 0;
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
-
-static const char* const questions[] = {
-    "What is the capital of France?",
-    "What is the tallest mountain in the world?",
-    "Who wrote the play Romeo and Juliet?",
-    "What is the chemical symbol for water?"
-};
-static int question_index = 0;
 
 static void gemini_api_task(void *pvParameters);
 
@@ -158,22 +146,25 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt) {
 
     switch(evt->event_id) {
         case HTTP_EVENT_ERROR:
-            ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
+            ESP_LOGD(TAG, "HTTP_EVENT_ERROR");
             break;
         case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_CONNECTED");
             break;
         case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
+            ESP_LOGD(TAG, "HTTP_EVENT_HEADER_SENT");
             break;
         case HTTP_EVENT_ON_HEADER:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
             break;
         case HTTP_EVENT_ON_DATA:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
-            if (response_buffer->buffer_size < response_buffer->data_len + evt->data_len + 1) {
-                // Expand buffer
-                int new_size = response_buffer->buffer_size * 2;
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            if (response_buffer->data_len + evt->data_len + 1 > response_buffer->buffer_size) {
+                int required_size = response_buffer->data_len + evt->data_len + 1;
+                int new_size = response_buffer->buffer_size;
+                while (new_size < required_size) {
+                    new_size *= 2;
+                }
                 char *new_buffer = realloc(response_buffer->buffer, new_size);
                 if (new_buffer == NULL) {
                     ESP_LOGE(TAG, "Failed to reallocate memory");
@@ -186,17 +177,16 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt) {
             response_buffer->data_len += evt->data_len;
             break;
         case HTTP_EVENT_ON_FINISH:
-            ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+            ESP_LOGD(TAG, "HTTP_EVENT_ON_FINISH");
             if (response_buffer->buffer != NULL) {
                 response_buffer->buffer[response_buffer->data_len] = '\0';
             }
             break;
         case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            ESP_LOGD(TAG, "HTTP_EVENT_DISCONNECTED");
             break;
-        // **FIX:** Added missing case to handle redirects and satisfy the compiler.
         case HTTP_EVENT_REDIRECT:
-            ESP_LOGI(TAG, "HTTP_EVENT_REDIRECT");
+            ESP_LOGD(TAG, "HTTP_EVENT_REDIRECT");
             break;
     }
     return ESP_OK;
@@ -244,6 +234,8 @@ esp_err_t make_gemini_api_call(const char *question, char **response_data) {
         if (status_code == 200) {
             *response_data = response_buffer.buffer;
         } else {
+            ESP_LOGE(TAG, "Server returned error status: %d", status_code);
+            ESP_LOGE(TAG, "Response: %s", response_buffer.buffer);
             free(response_buffer.buffer);
             err = ESP_FAIL;
         }
@@ -327,80 +319,72 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
-static void IRAM_ATTR button_isr_handler(void* arg)
-{
-    gpio_intr_disable(BUTTON_GPIO);
-    xSemaphoreGiveFromISR(s_gemini_semaphore, NULL);
-}
-
-static void peripherals_init(void)
-{
-    s_gemini_semaphore = xSemaphoreCreateBinary();
-    gpio_config_t io_conf = {
-        .intr_type = GPIO_INTR_NEGEDGE,
-        .pin_bit_mask = (1ULL << BUTTON_GPIO),
-        .mode = GPIO_MODE_INPUT,
-        .pull_up_en = 1,
-    };
-    gpio_config(&io_conf);
-    gpio_install_isr_service(0);
-    gpio_isr_handler_add(BUTTON_GPIO, button_isr_handler, NULL);
-}
+// **REMOVED:** Button-related functions are no longer needed.
 
 static void gemini_api_task(void *pvParameters) {
+    char line_buffer[SERIAL_BUFFER_SIZE];
+    int index = 0;
+
+    // Give a small delay to ensure the serial monitor is ready
+    vTaskDelay(pdMS_TO_TICKS(1000));
+    printf("Enter your question and press Enter:\n");
+
     while(1) {
-        if (xSemaphoreTake(s_gemini_semaphore, portMAX_DELAY) == pdTRUE) {
-            EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
-            if (!(bits & WIFI_CONNECTED_BIT)) {
-                ESP_LOGE(TAG, "Wi-Fi not connected. Aborting API call.");
-                vTaskDelay(pdMS_TO_TICKS(500));
-                gpio_intr_enable(BUTTON_GPIO);
-                continue;
-            }
-
-            const char* current_question = questions[question_index];
-            ESP_LOGI(TAG, "Button pressed! Asking: \"%s\"", current_question);
+        // Read characters from stdin (serial monitor)
+        int c = fgetc(stdin);
+        if (c != EOF) {
+            // Echo character back to the monitor
+            putchar(c);
             
-            char *raw_response = NULL;
-            esp_err_t err = ESP_FAIL;
+            if (c == '\n' || c == '\r') {
+                // End of line
+                line_buffer[index] = '\0';
+                
+                if (index > 0) {
+                    ESP_LOGI(TAG, "Question received: \"%s\"", line_buffer);
+                    
+                    char *raw_response = NULL;
+                    esp_err_t err = ESP_FAIL;
 
-            int retries = 0;
-            while (retries < API_CALL_MAX_RETRIES) {
-                err = make_gemini_api_call(current_question, &raw_response);
-                if (err == ESP_OK) {
-                    break; 
+                    // Retry logic for the API call
+                    for (int retries = 0; retries < API_CALL_MAX_RETRIES; retries++) {
+                        err = make_gemini_api_call(line_buffer, &raw_response);
+                        if (err == ESP_OK) {
+                            break; 
+                        }
+                        ESP_LOGW(TAG, "API call failed, retrying in %d seconds...", 1 << retries);
+                        vTaskDelay(pdMS_TO_TICKS(1000 * (1 << retries))); 
+                    }
+
+                    if (err == ESP_OK && raw_response != NULL) {
+                        ESP_LOGI(TAG, "Raw response received: [%s]", raw_response);
+                        char *json_start = strchr(raw_response, '{');
+                        if (json_start) {
+                            char* gemini_answer = parse_gemini_response(json_start);
+                            if (gemini_answer != NULL) {
+                                printf("\nGemini's Answer: %s\n", gemini_answer);
+                                free(gemini_answer);
+                            }
+                        } else {
+                            ESP_LOGE(TAG, "No JSON object found in response");
+                        }
+                        free(raw_response);
+                    } else {
+                        ESP_LOGE(TAG, "API call failed after %d retries.", API_CALL_MAX_RETRIES);
+                    }
                 }
                 
-                retries++;
-                if (retries < API_CALL_MAX_RETRIES) {
-                    ESP_LOGW(TAG, "API call failed, retrying in %d seconds...", 1 << retries);
-                    vTaskDelay(pdMS_TO_TICKS(1000 * (1 << retries))); 
-                }
+                // Reset for next question
+                index = 0;
+                printf("\nEnter your question and press Enter:\n");
+
+            } else if (index < (SERIAL_BUFFER_SIZE - 1)) {
+                // Add character to buffer
+                line_buffer[index++] = c;
             }
-
-
-            if (err == ESP_OK && raw_response != NULL) {
-                ESP_LOGI(TAG, "Raw response received: [%s]", raw_response);
-                char *json_start = strchr(raw_response, '{');
-                if (json_start) {
-                    char* gemini_answer = parse_gemini_response(json_start);
-                    if (gemini_answer != NULL) {
-                        ESP_LOGI(TAG, "Gemini's Answer: %s", gemini_answer);
-                        free(gemini_answer);
-                    }
-                } else {
-                    ESP_LOGE(TAG, "No JSON object found in response");
-                }
-                free(raw_response);
-            } else {
-                ESP_LOGE(TAG, "API call failed after %d retries.", API_CALL_MAX_RETRIES);
-            }
-            ESP_LOGI(TAG, "Finished Gemini API call. Ready for next button press.");
-
-            question_index = (question_index + 1) % (sizeof(questions) / sizeof(questions[0]));
-            vTaskDelay(pdMS_TO_TICKS(500));
-            gpio_intr_enable(BUTTON_GPIO);
         }
+        // Small delay to prevent task from spinning
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -413,12 +397,11 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     wifi_init_sta();
-    peripherals_init();
 
     EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
     if (bits & WIFI_CONNECTED_BIT) {
         xTaskCreate(gemini_api_task, "gemini_task", GEMINI_TASK_STACK_SIZE, NULL, 5, NULL);
-        ESP_LOGI(TAG, "Initialization complete. Press the button to ask Gemini a question.");
+        ESP_LOGI(TAG, "Initialization complete. Ready for serial input.");
     } else {
         ESP_LOGE(TAG, "Wi-Fi not connected. Cannot start Gemini task.");
     }
