@@ -1,0 +1,16 @@
+menu "Gemini API Configuration"
+
+    config GEMINI_API_KEY
+        string "Gemini API Key"
+        default "YOUR_API_KEY_HERE"
+        help
+            Enter your Google AI Gemini API key.
+
+    config WIFI_SSID
+        string "WiFi SSID"
+        default "YOUR_WIFI_SSID"
+
+    config WIFI_PASSWORD
+        string "WiFi Password"
+        default "YOUR_WIFI_PASSWORD"
+endmenu

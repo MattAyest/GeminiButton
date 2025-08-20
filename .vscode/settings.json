@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "esp_log.h": "c",
+        "cjson.h": "c",
+        "esp_crt_bundle.h": "c"
+    }
+}
