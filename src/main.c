@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/event_groups.h"
@@ -14,18 +15,19 @@
 #include "driver/gpio.h"
 #include "esp_crt_bundle.h"
 
-
+// =================================================================================
 // Configuration
-// These values are set by build flags in platformio.ini or via menuconfig
+// These values are set by build flags in platformio.ini
 #define GEMINI_API_KEY CONFIG_GEMINI_API_KEY
 #define WIFI_SSID      CONFIG_WIFI_SSID
 #define WIFI_PASS      CONFIG_WIFI_PASSWORD
+// =================================================================================
+
 #define WIFI_MAXIMUM_RETRY  5
-#define BUTTON_GPIO         0 // GPIO 0 is often the "BOOT" button on dev kits
+#define BUTTON_GPIO         0
 #define GEMINI_TASK_STACK_SIZE 10240
-#define GEMINI_API_KEY "AIzaSyA8g0_zO89HndS1Q9eKj9Gy5BX23noIqmQ"
-#define WIFI_SSID  "Pixel_4407"
-#define WIFI_PASS  "wagwanjimbo"
+#define API_CALL_MAX_RETRIES 3
+
 
 static const char *TAG = "gemini_api_call";
 
@@ -55,7 +57,6 @@ static int question_index = 0;
 static void gemini_api_task(void *pvParameters);
 
 // Helper function to parse the JSON response and extract the model's text.
-// Returns a newly allocated string that must be freed by the caller.
 char* parse_gemini_response(const char* json_string)
 {
     char* result_text = NULL;
@@ -67,38 +68,28 @@ char* parse_gemini_response(const char* json_string)
 
     const cJSON *candidates = cJSON_GetObjectItem(root, "candidates");
     if (!cJSON_IsArray(candidates) || cJSON_GetArraySize(candidates) == 0) {
-        ESP_LOGE(TAG, "JSON response missing 'candidates' array.");
+        const cJSON *promptFeedback = cJSON_GetObjectItem(root, "promptFeedback");
+        if (promptFeedback) {
+            const cJSON *blockReason = cJSON_GetObjectItem(promptFeedback, "blockReason");
+            if (cJSON_IsString(blockReason)) {
+                ESP_LOGE(TAG, "Request blocked, reason: %s", blockReason->valuestring);
+            }
+        } else {
+            ESP_LOGE(TAG, "JSON response missing 'candidates' array.");
+        }
         goto end;
     }
 
     const cJSON *first_candidate = cJSON_GetArrayItem(candidates, 0);
-    if (first_candidate == NULL) {
-        ESP_LOGE(TAG, "Could not get first candidate");
-        goto end;
-    }
     const cJSON *content = cJSON_GetObjectItem(first_candidate, "content");
-    if (!content) {
-        ESP_LOGE(TAG, "JSON response missing 'content' object.");
-        goto end;
-    }
-
-
     const cJSON *parts = cJSON_GetObjectItem(content, "parts");
-    if (!cJSON_IsArray(parts) || cJSON_GetArraySize(parts) == 0) {
-        ESP_LOGE(TAG, "JSON response missing 'parts' array.");
-        goto end;
-    }
-
     const cJSON *first_part = cJSON_GetArrayItem(parts, 0);
     const cJSON *text = cJSON_GetObjectItem(first_part, "text");
-    if (!cJSON_IsString(text) || (text->valuestring == NULL)) {
-        ESP_LOGE(TAG, "JSON response missing 'text' string.");
-        goto end;
-    }
 
-    result_text = strdup(text->valuestring);
-    if (result_text == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for result text.");
+    if (cJSON_IsString(text) && text->valuestring != NULL) {
+        result_text = strdup(text->valuestring);
+    } else {
+        ESP_LOGE(TAG, "JSON response missing 'text' string.");
     }
 
 end:
@@ -106,6 +97,7 @@ end:
     return result_text;
 }
 
+// Creates the correct JSON payload structure for the Gemini API.
 static char* create_gemini_json_payload(const char* question) {
     cJSON *root = cJSON_CreateObject();
     if (!root) {
@@ -117,162 +109,164 @@ static char* create_gemini_json_payload(const char* question) {
     if (!contents) goto error;
 
     cJSON *content_item = cJSON_CreateObject();
-    if (!content_item) goto error;
     cJSON_AddItemToArray(contents, content_item);
 
     cJSON *parts = cJSON_AddArrayToObject(content_item, "parts");
-    if (!parts) goto error;
-
     cJSON *part_item = cJSON_CreateObject();
-    if (!part_item) goto error;
     cJSON_AddItemToArray(parts, part_item);
-
     cJSON_AddStringToObject(part_item, "text", question);
 
     cJSON *safety_settings = cJSON_AddArrayToObject(root, "safetySettings");
-    if (!safety_settings) goto error;
-
     const char* categories[] = {
-        "HARM_CATEGORY_DANGEROUS_CONTENT",
-        "HARM_CATEGORY_HATE_SPEECH",
-        "HARM_CATEGORY_HARASSMENT",
-        "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+        "HARM_CATEGORY_DANGEROUS_CONTENT", "HARM_CATEGORY_HATE_SPEECH",
+        "HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_SEXUALLY_EXPLICIT"
     };
-
     for (int i = 0; i < sizeof(categories)/sizeof(categories[0]); i++) {
         cJSON *setting_item = cJSON_CreateObject();
-        if (!setting_item) goto error;
         cJSON_AddStringToObject(setting_item, "category", categories[i]);
         cJSON_AddStringToObject(setting_item, "threshold", "BLOCK_NONE");
         cJSON_AddItemToArray(safety_settings, setting_item);
     }
 
     cJSON *generation_config = cJSON_CreateObject();
-    if (!generation_config) goto error;
-
     cJSON_AddNumberToObject(generation_config, "temperature", 0.9);
     cJSON_AddNumberToObject(generation_config, "topK", 1);
     cJSON_AddNumberToObject(generation_config, "topP", 1);
     cJSON_AddNumberToObject(generation_config, "maxOutputTokens", 8192);
-
-    if (!cJSON_AddItemToObject(root, "generationConfig", generation_config)) {
-        cJSON_Delete(generation_config);
-        goto error;
-    }
+    cJSON_AddItemToObject(root, "generationConfig", generation_config);
 
     char *json_string = cJSON_Print(root);
     cJSON_Delete(root);
     return json_string;
 
 error:
-    ESP_LOGE(TAG, "Failed to create Gemini JSON payload due to memory allocation failure.");
+    ESP_LOGE(TAG, "Failed to create Gemini JSON payload.");
     cJSON_Delete(root);
     return NULL;
+}
+
+// Using a struct to manage the response buffer for the event handler
+typedef struct {
+    char *buffer;
+    int buffer_size;
+    int data_len;
+} http_response_buffer_t;
+
+// Robust HTTP event handler to correctly process chunked responses
+esp_err_t http_event_handler(esp_http_client_event_t *evt) {
+    http_response_buffer_t *response_buffer = (http_response_buffer_t *)evt->user_data;
+
+    switch(evt->event_id) {
+        case HTTP_EVENT_ERROR:
+            ESP_LOGE(TAG, "HTTP_EVENT_ERROR");
+            break;
+        case HTTP_EVENT_ON_CONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_CONNECTED");
+            break;
+        case HTTP_EVENT_HEADER_SENT:
+            ESP_LOGI(TAG, "HTTP_EVENT_HEADER_SENT");
+            break;
+        case HTTP_EVENT_ON_HEADER:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_HEADER, key=%s, value=%s", evt->header_key, evt->header_value);
+            break;
+        case HTTP_EVENT_ON_DATA:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_DATA, len=%d", evt->data_len);
+            if (response_buffer->buffer_size < response_buffer->data_len + evt->data_len + 1) {
+                // Expand buffer
+                int new_size = response_buffer->buffer_size * 2;
+                char *new_buffer = realloc(response_buffer->buffer, new_size);
+                if (new_buffer == NULL) {
+                    ESP_LOGE(TAG, "Failed to reallocate memory");
+                    return ESP_FAIL;
+                }
+                response_buffer->buffer = new_buffer;
+                response_buffer->buffer_size = new_size;
+            }
+            memcpy(response_buffer->buffer + response_buffer->data_len, evt->data, evt->data_len);
+            response_buffer->data_len += evt->data_len;
+            break;
+        case HTTP_EVENT_ON_FINISH:
+            ESP_LOGI(TAG, "HTTP_EVENT_ON_FINISH");
+            if (response_buffer->buffer != NULL) {
+                response_buffer->buffer[response_buffer->data_len] = '\0';
+            }
+            break;
+        case HTTP_EVENT_DISCONNECTED:
+            ESP_LOGI(TAG, "HTTP_EVENT_DISCONNECTED");
+            break;
+        // **FIX:** Added missing case to handle redirects and satisfy the compiler.
+        case HTTP_EVENT_REDIRECT:
+            ESP_LOGI(TAG, "HTTP_EVENT_REDIRECT");
+            break;
+    }
+    return ESP_OK;
 }
 
 // Function to make the Gemini API call
 esp_err_t make_gemini_api_call(const char *question, char **response_data) {
     *response_data = NULL;
-    esp_err_t err = ESP_FAIL;
-    char *post_data = NULL;
-    esp_http_client_handle_t client = NULL;
+    char *post_data = create_gemini_json_payload(question);
+    if (post_data == NULL) {
+        return ESP_ERR_NO_MEM;
+    }
+
+    http_response_buffer_t response_buffer = {0};
+    response_buffer.buffer = malloc(2048);
+    if (response_buffer.buffer == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate memory for response buffer");
+        free(post_data);
+        return ESP_ERR_NO_MEM;
+    }
+    response_buffer.buffer_size = 2048;
 
     char gemini_url[256];
-    snprintf(gemini_url, sizeof(gemini_url), "https://generativeai.googleapis.com/v1beta/models/%s:generateContent?key=%s", MODEL_NAME, GEMINI_API_KEY);
+    snprintf(gemini_url, sizeof(gemini_url), "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent", MODEL_NAME);
     
-    ESP_LOGI(TAG, "Requesting URL for model: %s", MODEL_NAME);
-
-    const esp_http_client_config_t config = {
+    esp_http_client_config_t config = {
         .url = gemini_url,
         .method = HTTP_METHOD_POST,
         .transport_type = HTTP_TRANSPORT_OVER_SSL,
         .crt_bundle_attach = esp_crt_bundle_attach,
-        .timeout_ms = 20000,
-        .buffer_size = 4096,
-        .buffer_size_tx = 2048,
+        .timeout_ms = 30000,
+        .user_data = &response_buffer,
+        .event_handler = http_event_handler,
     };
-    client = esp_http_client_init(&config);
-    if (client == NULL) {
-        ESP_LOGE(TAG, "Failed to initialize HTTP client");
-        return ESP_FAIL;
-    }
-
-    post_data = create_gemini_json_payload(question);
-    if (post_data == NULL) {
-        ESP_LOGE(TAG, "Failed to create JSON post data.");
-        err = ESP_ERR_NO_MEM;
-        goto cleanup;
-    }
-
-    esp_http_client_set_post_field(client, post_data, strlen(post_data));
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    esp_http_client_set_header(client, "x-goog-api-key", GEMINI_API_KEY);
     esp_http_client_set_header(client, "Content-Type", "application/json");
+    esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
-    if ((err = esp_http_client_perform(client)) != ESP_OK) {
-        ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
-        goto cleanup;
-    }
+    esp_err_t err = esp_http_client_perform(client);
 
-    int status_code = esp_http_client_get_status_code(client);
-    int64_t content_length = esp_http_client_get_content_length(client);
-    ESP_LOGI(TAG, "HTTP Status = %d, content_length = %lld", status_code, content_length);
-
-    if (status_code != 200) {
-        ESP_LOGE(TAG, "Request failed with status code %d", status_code);
-        char error_buf[512];
-        int error_read_len = esp_http_client_read_response(client, error_buf, sizeof(error_buf) - 1);
-        if (error_read_len > 0) {
-            error_buf[error_read_len] = '\0';
-            ESP_LOGE(TAG, "Server error response: %s", error_buf);
+    if (err == ESP_OK) {
+        int status_code = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG, "HTTP Status = %d", status_code);
+        if (status_code == 200) {
+            *response_data = response_buffer.buffer;
+        } else {
+            free(response_buffer.buffer);
+            err = ESP_FAIL;
         }
-        err = ESP_FAIL;
-        goto cleanup;
-    }
-
-    if (content_length <= 0) {
-        ESP_LOGW(TAG, "Content length is zero or unknown, cannot read response body.");
-        err = ESP_OK;
-        goto cleanup;
-    }
-
-    *response_data = (char *)malloc(content_length + 1);
-    if (*response_data == NULL) {
-        ESP_LOGE(TAG, "Failed to allocate memory for response data");
-        err = ESP_ERR_NO_MEM;
-        goto cleanup;
-    }
-
-    int read_len = esp_http_client_read_response(client, *response_data, content_length);
-    if (read_len < 0) {
-        ESP_LOGE(TAG, "Error reading response");
-        err = ESP_FAIL;
     } else {
-        (*response_data)[read_len] = '\0';
-        err = ESP_OK;
+        ESP_LOGE(TAG, "HTTP request failed: %s", esp_err_to_name(err));
+        free(response_buffer.buffer);
     }
-
-    if (err != ESP_OK) {
-        free(*response_data);
-        *response_data = NULL;
-    }
-
-cleanup:
+    
+    esp_http_client_cleanup(client);
     free(post_data);
-    if (client) {
-        esp_http_client_cleanup(client);
-    }
     return err;
 }
 
 void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
-
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
-
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
+
+    ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
     esp_event_handler_instance_t instance_any_id;
     esp_event_handler_instance_t instance_got_ip;
@@ -298,8 +292,6 @@ void wifi_init_sta(void)
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
     ESP_ERROR_CHECK(esp_wifi_start() );
 
-    ESP_LOGI(TAG, "wifi_init_sta finished. Waiting for connection...");
-
     EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
             WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
             pdFALSE,
@@ -307,11 +299,9 @@ void wifi_init_sta(void)
             portMAX_DELAY);
 
     if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "Connected to AP SSID:%s", WIFI_SSID);
+        ESP_LOGI(TAG, "Connected to AP SSID: %s", WIFI_SSID);
     } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGE(TAG, "Failed to connect to SSID:%s", WIFI_SSID);
-    } else {
-        ESP_LOGE(TAG, "UNEXPECTED WIFI EVENT");
+        ESP_LOGE(TAG, "Failed to connect to SSID: %s", WIFI_SSID);
     }
 }
 
@@ -329,7 +319,6 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base,
         } else {
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
-        ESP_LOGW(TAG, "Disconnected from AP, trying to reconnect...");
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "Got IP:" IPSTR, IP2STR(&event->ip_info.ip));
@@ -347,7 +336,6 @@ static void IRAM_ATTR button_isr_handler(void* arg)
 static void peripherals_init(void)
 {
     s_gemini_semaphore = xSemaphoreCreateBinary();
-
     gpio_config_t io_conf = {
         .intr_type = GPIO_INTR_NEGEDGE,
         .pin_bit_mask = (1ULL << BUTTON_GPIO),
@@ -355,7 +343,6 @@ static void peripherals_init(void)
         .pull_up_en = 1,
     };
     gpio_config(&io_conf);
-
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BUTTON_GPIO, button_isr_handler, NULL);
 }
@@ -373,25 +360,44 @@ static void gemini_api_task(void *pvParameters) {
 
             const char* current_question = questions[question_index];
             ESP_LOGI(TAG, "Button pressed! Asking: \"%s\"", current_question);
-            ESP_LOGI(TAG, "Free heap before API call: %lu bytes", (unsigned long)esp_get_free_heap_size());
             
             char *raw_response = NULL;
-            esp_err_t err = make_gemini_api_call(current_question, &raw_response);
+            esp_err_t err = ESP_FAIL;
+
+            int retries = 0;
+            while (retries < API_CALL_MAX_RETRIES) {
+                err = make_gemini_api_call(current_question, &raw_response);
+                if (err == ESP_OK) {
+                    break; 
+                }
+                
+                retries++;
+                if (retries < API_CALL_MAX_RETRIES) {
+                    ESP_LOGW(TAG, "API call failed, retrying in %d seconds...", 1 << retries);
+                    vTaskDelay(pdMS_TO_TICKS(1000 * (1 << retries))); 
+                }
+            }
+
 
             if (err == ESP_OK && raw_response != NULL) {
-                char* gemini_answer = parse_gemini_response(raw_response);
-                if (gemini_answer != NULL) {
-                    ESP_LOGI(TAG, "Gemini's Answer: %s", gemini_answer);
-                    free(gemini_answer);
+                ESP_LOGI(TAG, "Raw response received: [%s]", raw_response);
+                char *json_start = strchr(raw_response, '{');
+                if (json_start) {
+                    char* gemini_answer = parse_gemini_response(json_start);
+                    if (gemini_answer != NULL) {
+                        ESP_LOGI(TAG, "Gemini's Answer: %s", gemini_answer);
+                        free(gemini_answer);
+                    }
+                } else {
+                    ESP_LOGE(TAG, "No JSON object found in response");
                 }
                 free(raw_response);
             } else {
-                ESP_LOGE(TAG, "API call failed!");
+                ESP_LOGE(TAG, "API call failed after %d retries.", API_CALL_MAX_RETRIES);
             }
             ESP_LOGI(TAG, "Finished Gemini API call. Ready for next button press.");
 
             question_index = (question_index + 1) % (sizeof(questions) / sizeof(questions[0]));
-
             vTaskDelay(pdMS_TO_TICKS(500));
             gpio_intr_enable(BUTTON_GPIO);
         }
@@ -407,7 +413,6 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     wifi_init_sta();
-
     peripherals_init();
 
     EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
