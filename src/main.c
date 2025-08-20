@@ -30,7 +30,7 @@
 
 static const char *TAG = "gemini_chat_cache";
 
-#define MODEL_NAME "gemini-1.5-flash"
+#define MODEL_NAME "gemini-1.5-pro"
 static EventGroupHandle_t s_wifi_event_group;
 
 #define WIFI_CONNECTED_BIT BIT0
