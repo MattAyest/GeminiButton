@@ -14,6 +14,8 @@
 #include "cJSON.h"
 #include "driver/gpio.h"
 #include "esp_crt_bundle.h"
+//Driver for I2S for Mic Mic used is SPH0645
+#include "driver/i2s.h"
 
 // =================================================================================
 // Configuration
@@ -37,39 +39,19 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 static int s_retry_num = 0;
 
+//I2S definitions
+#define Sample_Rate 16000
+
+//GPIO pin declarations
+#define I2S_LRCL_Pin 
+#define I2S_Blck_Pin
+#define I2S_Dout_Pin
+
 // Global state for chat
-cJSON *chat_history = NULL;
 char *cached_content_name = NULL; // Stores the "cachedContents/..." token
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 static void gemini_api_task(void *pvParameters);
-
-// ======================= Chat History Management =======================
-
-void add_message_to_history(const char *role, const char *text) {
-    if (!chat_history) {
-        chat_history = cJSON_CreateArray();
-    }
-    cJSON *message = cJSON_CreateObject();
-    cJSON_AddStringToObject(message, "role", role);
-    cJSON *parts = cJSON_AddArrayToObject(message, "parts");
-    cJSON *part_item = cJSON_CreateObject();
-    cJSON_AddStringToObject(part_item, "text", text);
-    cJSON_AddItemToArray(parts, part_item);
-    cJSON_AddItemToArray(chat_history, message);
-}
-
-void clear_chat_history() {
-    if (chat_history) {
-        cJSON_Delete(chat_history);
-    }
-    if (cached_content_name) {
-        free(cached_content_name);
-        cached_content_name = NULL;
-    }
-    chat_history = cJSON_CreateArray();
-    ESP_LOGI(TAG, "Chat history and cache cleared.");
-}
 
 // ======================= API and JSON Functions =======================
 
@@ -115,8 +97,7 @@ end:
 static char* create_gemini_json_payload(const char* new_question) {
     cJSON *root = cJSON_CreateObject();
     if (!root) return NULL;
-
-    if (cached_content_name) {
+        
         cJSON *contents = cJSON_AddArrayToObject(root, "contents");
         cJSON *content_item = cJSON_CreateObject();
         cJSON_AddItemToArray(contents, content_item);
@@ -126,23 +107,19 @@ static char* create_gemini_json_payload(const char* new_question) {
         cJSON_AddStringToObject(part_item, "text", new_question);
         
         cJSON_AddStringToObject(root, "cachedContent", cached_content_name);
-    } else {
-        add_message_to_history("user", new_question);
-        cJSON_AddItemToObject(root, "contents", cJSON_Duplicate(chat_history, 1));
-    }
-
-    // **FIX:** Add tools section to enable grounding with Google Search
-    cJSON *tools = cJSON_AddArrayToObject(root, "tools");
-    cJSON *tool_item = cJSON_CreateObject();
-    cJSON_CreateObject(); // googleSearchRetrieval object
-    cJSON_AddItemToObject(tool_item, "googleSearchRetrieval", cJSON_CreateObject());
-    cJSON_AddItemToArray(tools, tool_item);
 
 
-    cJSON *safety_settings = cJSON_AddArrayToObject(root, "safetySettings");
-    const char* categories[] = {
-        "HARM_CATEGORY_DANGEROUS_CONTENT", "HARM_CATEGORY_HATE_SPEECH",
-        "HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+        // **FIX:** Add tools section to enable grounding with Google Search
+        cJSON *tools = cJSON_AddArrayToObject(root, "tools");
+        cJSON *tool_item = cJSON_CreateObject();
+        cJSON_AddItemToObject(tool_item, "googleSearchRetrieval", cJSON_CreateObject());
+        cJSON_AddItemToArray(tools, tool_item);
+
+
+        cJSON *safety_settings = cJSON_AddArrayToObject(root, "safetySettings");
+        const char* categories[] = {
+            "HARM_CATEGORY_DANGEROUS_CONTENT", "HARM_CATEGORY_HATE_SPEECH",
+            "HARM_CATEGORY_HARASSMENT", "HARM_CATEGORY_SEXUALLY_EXPLICIT"
     };
     for (int i = 0; i < sizeof(categories)/sizeof(categories[0]); i++) {
         cJSON *setting_item = cJSON_CreateObject();
@@ -216,6 +193,7 @@ esp_err_t make_gemini_api_call(const char *question, char **response_data) {
         .user_data = &response_buffer,
         .event_handler = http_event_handler,
     };
+
     esp_http_client_handle_t client = esp_http_client_init(&config);
     esp_http_client_set_header(client, "x-goog-api-key", GEMINI_API_KEY);
     esp_http_client_set_header(client, "Content-Type", "application/json");
@@ -293,7 +271,7 @@ static void gemini_api_task(void *pvParameters) {
     char line_buffer[SERIAL_BUFFER_SIZE];
     int index = 0;
 
-    printf("\nEnter your question and press Enter.\nType 'new' to start a new conversation.\n");
+    printf("\nEnter your question and press Enter.\n");
 
     while(1) {
         int c = fgetc(stdin);
@@ -304,31 +282,25 @@ static void gemini_api_task(void *pvParameters) {
                 line_buffer[index] = '\0';
                 
                 if (index > 0) {
-                    if (strcmp(line_buffer, "new") == 0) {
-                        clear_chat_history();
-                    } else {
-                        char *raw_response = NULL;
-                        esp_err_t err = make_gemini_api_call(line_buffer, &raw_response);
+                    char *raw_response = NULL;
+                    esp_err_t err = make_gemini_api_call(line_buffer, &raw_response);
 
-                        if (err == ESP_OK && raw_response != NULL) {
-                            parsed_response_t parsed = parse_gemini_response(raw_response);
-                            
-                            if (parsed.text) {
-                                printf("\nGemini: %s\n", parsed.text);
-                                add_message_to_history("user", line_buffer);
-                                add_message_to_history("model", parsed.text);
-                                free(parsed.text);
-                            }
-
-                            if (parsed.cache_name) {
-                                if (cached_content_name) free(cached_content_name);
-                                cached_content_name = parsed.cache_name;
-                                ESP_LOGI(TAG, "Updated cache token: %s", cached_content_name);
-                            }
-                            free(raw_response);
-                        } else {
-                            ESP_LOGE(TAG, "API call failed. Cache may have expired. Try starting a new conversation.");
+                    if (err == ESP_OK && raw_response != NULL) {
+                        parsed_response_t parsed = parse_gemini_response(raw_response);
+                        
+                        if (parsed.text) {
+                            printf("\nGemini: %s\n", parsed.text);
+                            free(parsed.text);
                         }
+
+                        if (parsed.cache_name) {
+                            if (cached_content_name) free(cached_content_name);
+                            cached_content_name = parsed.cache_name;
+                            ESP_LOGI(TAG, "Updated cache token: %s", cached_content_name);
+                        }
+                        free(raw_response);
+                    } else {
+                        ESP_LOGE(TAG, "API call failed. Cache may have expired. Try starting a new conversation.");
                     }
                 }
                 
@@ -352,9 +324,6 @@ void app_main(void) {
     ESP_ERROR_CHECK(ret);
 
     wifi_init_sta();
-    
-    // Initialize a new, empty chat history on boot
-    chat_history = cJSON_CreateArray();
 
     EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
     if (bits & WIFI_CONNECTED_BIT) {
