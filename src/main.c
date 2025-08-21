@@ -28,7 +28,7 @@
 #define API_CALL_MAX_RETRIES 3
 #define SERIAL_BUFFER_SIZE   256
 
-static const char *TAG = "gemini_chat_cache";
+static const char *TAG = "gemini_chat_grounding";
 
 #define MODEL_NAME "gemini-1.5-pro"
 static EventGroupHandle_t s_wifi_event_group;
@@ -87,7 +87,6 @@ parsed_response_t parse_gemini_response(const char* json_string) {
         return response;
     }
 
-    // Extract the cachedContent name if it exists
     const cJSON *cached_content = cJSON_GetObjectItem(root, "cachedContent");
     if (cJSON_IsString(cached_content) && cached_content->valuestring != NULL) {
         response.cache_name = strdup(cached_content->valuestring);
@@ -118,7 +117,6 @@ static char* create_gemini_json_payload(const char* new_question) {
     if (!root) return NULL;
 
     if (cached_content_name) {
-        // Use the cache: send only the new message and the cache name
         cJSON *contents = cJSON_AddArrayToObject(root, "contents");
         cJSON *content_item = cJSON_CreateObject();
         cJSON_AddItemToArray(contents, content_item);
@@ -129,12 +127,18 @@ static char* create_gemini_json_payload(const char* new_question) {
         
         cJSON_AddStringToObject(root, "cachedContent", cached_content_name);
     } else {
-        // No cache: send the full history to create one
         add_message_to_history("user", new_question);
         cJSON_AddItemToObject(root, "contents", cJSON_Duplicate(chat_history, 1));
     }
 
-    // Safety and generation configs are always needed
+    // **FIX:** Add tools section to enable grounding with Google Search
+    cJSON *tools = cJSON_AddArrayToObject(root, "tools");
+    cJSON *tool_item = cJSON_CreateObject();
+    cJSON_CreateObject(); // googleSearchRetrieval object
+    cJSON_AddItemToObject(tool_item, "googleSearchRetrieval", cJSON_CreateObject());
+    cJSON_AddItemToArray(tools, tool_item);
+
+
     cJSON *safety_settings = cJSON_AddArrayToObject(root, "safetySettings");
     const char* categories[] = {
         "HARM_CATEGORY_DANGEROUS_CONTENT", "HARM_CATEGORY_HATE_SPEECH",
