@@ -2,6 +2,8 @@
     "files.associations": {
         "esp_log.h": "c",
         "cjson.h": "c",
-        "esp_crt_bundle.h": "c"
+        "esp_crt_bundle.h": "c",
+        "i2s_audio_controller.h": "c",
+        "geminiapi.h": "c"
     }
 }
