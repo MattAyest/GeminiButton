@@ -4,7 +4,6 @@
     Date:22/08/2025
 
 */
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -25,30 +24,28 @@
 #include "driver/i2s.h"
 
 //Header calls
+//- calling all my header files to allow my function calls 
 #include "GeminiAPI.h"
 #include "I2S_Audio_Controller.h"
 
-// =================================================================================
 // Configuration
-// These values are set by build flags in platformio.ini
 #define GEMINI_API_KEY CONFIG_GEMINI_API_KEY
 #define WIFI_SSID      CONFIG_WIFI_SSID
 #define WIFI_PASS      CONFIG_WIFI_PASSWORD
-// =================================================================================
 
 #define WIFI_MAXIMUM_RETRY   5
-#define GEMINI_TASK_STACK_SIZE 10240
+#define GEMINI_TASK_STACK_SIZE 10240 
 #define API_CALL_MAX_RETRIES 3
 #define SERIAL_BUFFER_SIZE   256
 
-static const char *TAG = "gemini_chat_grounding";
+static const char *TAG = "gemini_chat_grounding"; 
 
-#define MODEL_NAME "gemini-1.5-pro"
-static EventGroupHandle_t s_wifi_event_group;
+#define MODEL_NAME "gemini-1.5-pro" 
+static EventGroupHandle_t s_wifi_event_group; 
 
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
-static int s_retry_num = 0;
+#define WIFI_CONNECTED_BIT BIT0 
+#define WIFI_FAIL_BIT      BIT1 
+static int s_retry_num = 0; 
 
 //I2S definitions
 #define Sample_Rate 16000
@@ -170,6 +167,7 @@ void app_main(void) {
 
     EventBits_t bits = xEventGroupGetBits(s_wifi_event_group);
     if (bits & WIFI_CONNECTED_BIT) {
+        //Replace with voice audio connection and also introduce a memory-Pool of largest size the https max package size
         xTaskCreate(gemini_api_task, "gemini_task", GEMINI_TASK_STACK_SIZE, NULL, 5, NULL);
     } else {
         ESP_LOGE(TAG, "Wi-Fi not connected. Cannot start Gemini task.");

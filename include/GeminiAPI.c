@@ -14,26 +14,20 @@
 
 static const char *TAG = "GeminiAPIhandler";
 
-/*write function here to handle full api call.
- Should need:
- -the apikey
- -the version of gemini
- -the message
- -if they want the chat to continue
-*/
-/**
- * @brief The main public function to interact with the Gemini API.
+/*
+  @brief The main public function to interact with the Gemini API.
  */
+
 parsed_response_t *Gemini_Api_Call(const GeminiQuestionInfo *question_info) {
     // 1. Validate input
-    if (!question_info || !question_info->apiKey || !question_info->model || !question_info->message) {
+    if (!question_info || !question_info->question) {
         ESP_LOGE(TAG, "Input question_info or its members are NULL.");
         return NULL;
     }
 
     // 2. Make the API call
     char *raw_response = NULL;
-    esp_err_t err = make_gemini_api_call(question_info, &raw_response);
+    esp_err_t err = make_gemini_api_call(question_info, &raw_response, MODEL_NAME, GEMINI_API_KEY);
 
     // 3. Parse the response
     if (err == ESP_OK && raw_response != NULL) {
@@ -168,7 +162,7 @@ esp_err_t http_event_handler(esp_http_client_event_t *evt) {
 
 esp_err_t make_gemini_api_call(const char *question, char **response_data, const char *MODEL_NAME, const char *GEMINI_API_KEY) {
     *response_data = NULL;
-    char *post_data = create_gemini_json_payload(question);
+    char *post_data = create_gemini_json_payload(question); // need to find a way to not need to parse cached content.
     if (post_data == NULL) return ESP_ERR_NO_MEM;
 
     http_response_buffer_t response_buffer = {0};

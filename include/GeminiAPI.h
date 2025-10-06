@@ -26,6 +26,12 @@ extern const char* MODEL_NAME;
         char *question;
     } GeminiQuestionInfo;
 
+/*#
+what i will be doing 
+Give it 1 function and make it 1 function for cleaning up the memory
+*/
+
+
 
     //Function definitions
     parsed_response_t* Gemini_Api_Call(const GeminiQuestionInfo *question_info);
