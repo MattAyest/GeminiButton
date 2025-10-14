@@ -4,44 +4,39 @@
     purpose: this contains the unit tests for the memory control header
 */
 
-#ifdef UNIT_TEST
-#include "Unity/unity.h"
+//#ifdef UNIT_TEST
+#include <unity.h>
+#include <MemoryPool.h>
 
-void startup(void){
+// Optional: A function that runs before each test
+void setUp(void) {
+    MemoryPoolFreeBlockInitiation(5,5,5)
+}
+
+// Optional: A function that runs after each test
+void tearDown(void) {
+    // clean up stuff...
+}
+
+// A test case is just a function that starts with 'test_'
+void test_Pool_Allocation_Should_Return_Pointer(void) {
+    // ask to allocate memorypool and confirm it is working;
+    UNIT_TEST(MemoryPoolFreeBlockInitiation(5,5,5));
 
 }
 
-void teardown(void){
-
-}
-//What unit tests should I be using in this
-void TestInitiationMemoryPool(void){
-
+void test_addition_should_work_for_negative_numbers(void) {
+    TEST_ASSERT_EQUAL_INT(-5, -2 + -3);
 }
 
-//Allocate memory in small group
-void TestSmallPoolAllocation(void){
+// This is the main function that runs your tests
+void app_main(void) { // On ESP32, or use main() for native tests
+    UNITY_BEGIN(); // Starts the test runner
 
+    // Run your test cases
+    RUN_TEST(test_addition_should_work_for_positive_numbers);
+    RUN_TEST(test_addition_should_work_for_negative_numbers);
+    
+    UNITY_END(); // Ends the test runner and prints a summary
 }
-//Allocate memory in Medium group
-void TestMediumPoolAllocation(void){
-
-}
-//Allocate memory in Large group
-void TestLargePoolAllocation(void){
-
-}
-//Request memory back from small pool
-void TestSmallPoolReturn(void){
-
-}
-//Request memory back from Medium Pool
-void TestMediumPoolReturn(void){
-
-}
-//Request memory back from large pool
-void TestLargePoolReturn(void){
-
-}
-//Additional tests that are needed
-#endif // UNIT_TEST
+//#endif // UNIT_TEST

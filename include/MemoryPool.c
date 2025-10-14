@@ -26,22 +26,6 @@ typedef struct FreeBlock {
 } FreeBlock;
 
 //FUNCTIONS
-//function for pool allocation and size
-void* MemoryPoolFreeBlockInitiation(uint8_t BlockNumber,uint8_t BlockSize, void* FirstMemoryBlock){
-   uint8_t* start_addr = (uint8_t*)FirstMemoryBlock;
-   for (size_t i = 0; i < BlockNumber; i++){
-        uint8_t* current_addr_raw = start_addr + (i * BlockSize);
-        FreeBlock* current_block = (FreeBlock*)current_addr_raw;
-
-        if (i == BlockNumber - 1){
-            current_block->next = NULL;
-        } else {
-            uint8_t* next_addr_raw = start_addr + ((i + 1) * BlockSize);
-            current_block->next = (FreeBlock*)next_addr_raw;
-        }
-   }
-   return FirstMemoryBlock;
-}
 
 PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks){
     PoolMemoryInfo* MemoryHandler = malloc(sizeof(PoolMemoryInfo));
@@ -79,11 +63,38 @@ PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_
 }
 
 //function for pool allocation and size
+void* MemoryPoolFreeBlockInitiation(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock){
+   uint8_t* start_addr = (uint8_t*)FirstMemoryBlock;
+   for (size_t i = 0; i < BlockNumber; i++){
+        uint8_t* current_addr_raw = start_addr + (i * BlockSize);
+        FreeBlock* current_block = (FreeBlock*)current_addr_raw;
+
+        if (i == BlockNumber - 1){
+            current_block->next = NULL;
+        } else {
+            uint8_t* next_addr_raw = start_addr + ((i + 1) * BlockSize);
+            current_block->next = (FreeBlock*)next_addr_raw;
+        }
+   }
+   return FirstMemoryBlock;
+}
+
+void PoolDestroy(void* FirstMemoryBlock, void* Memoryhandle){
+    free(FirstMemoryBlock);
+    free(Memoryhandle);
+}
+
+
+
+
+
+//function for pool allocation and size
 void* AllocateMemoryFromPool(size_t MemorySize, PoolMemoryInfo* handle) {
     //Get the size that needs to be allocated
     if (MemorySize <= 0) {
         return NULL;
     }
+    //need to update with the new pool freeblock location adress
     if (MemorySize <= SMALL_BLOCK_SIZE) {
         return  PoolAllocation(&handle->SmallPoolStorage);
     }
@@ -103,6 +114,7 @@ uint8_t* PoolAllocation(PoolInfo* FirstMemoryBlock){
     FreeBlock* block_to_return  = (FreeBlock*)FirstMemoryBlock->FreeBlockLocation;
     //read location stored in next block 
     void* new_head = (void*)block_to_return->next;
+    FirstMemoryBlock->FreeBlockLocation = new_head;
     //correct next free block in linked list
     return (void*)block_to_return;
 }
@@ -116,8 +128,8 @@ void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
     //cast for all the pointer arithmatic 
     uint8_t* pointer = (uint8_t*)Packet;
     PoolInfo* SmallPoolInfo = &handle->SmallPoolStorage;
-    uint8_t* SmallPoolStartPointer = handle->PoolStartAdr;
-    size_t SmallPoolSize = handle->TotalBlocks * SMALL_BLOCK_SIZE; 
+    uint8_t* SmallPoolStartPointer = handle->SmallPoolStorage.PoolStartAdr;
+    size_t SmallPoolSize = handle->SmallPoolStorage.TotalBlocks * SMALL_BLOCK_SIZE; 
     //get the pointer as a value. range each value against each one
     if (pointer >= SmallPoolStartPointer && pointer < (SmallPoolStartPointer + SmallPoolSize)){
         FreeBlock* ReturnBlockFree  = (FreeBlock*)Packet;
@@ -139,19 +151,15 @@ void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
     
     PoolInfo* LargePoolInfo = &handle->LargePoolStorage;
     size_t LargePoolSize = LargePoolInfo->TotalBlocks * LARGE_BLOCK_SIZE; 
-    uint8_t* MediumPoolStartPointer = handle->PoolStartAdr + SmallPoolSize + MediumPoolSize;
+    uint8_t* LargePoolStartPointer = handle->PoolStartAdr + SmallPoolSize + MediumPoolSize + LargePoolSize;
     //go to return function providing the struct size that needs to be returned
-    if (pointer >= MediumPoolStartPointer && pointer < (MediumPoolStartPointer + MediumPoolSize)){
+    if (pointer >= LargePoolStartPointer && pointer < (LargePoolStartPointer + LargePoolSize)){
         FreeBlock* ReturnBlockFree  = (FreeBlock*)Packet;
-        ReturnBlockFree->next = MediumPoolInfo->FreeBlockLocation;
-        MediumPoolInfo->FreeBlockLocation = ReturnBlockFree;
+        ReturnBlockFree->next = LargePoolInfo->FreeBlockLocation;
+        LargePoolInfo->FreeBlockLocation = ReturnBlockFree;
         return;
     }
 
     //work out the maximum pointer value and if above that throw an error?
     return;
 }
-
-
-
-//function for unit test that will be moved to the other c file
