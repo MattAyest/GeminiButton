@@ -1,15 +1,18 @@
-#ifndef MemoryPool.h
-#define MemoryPool.h
+// MemoryPool.h
+
+#ifndef MEMORY_POOL_H  // A unique include guard
+#define MEMORY_POOL_H
 
 #include <stdint.h>
-#include <stdio.h>
+#include <stddef.h>
 
-struct PoolMemoryInfo;
-typedef PoolMemoryInfo PoolMemoryInfo;
+// Opaque pointer to hide the implementation details
+typedef struct PoolMemoryInfo PoolMemoryInfo;
 
-//functions
-PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks);
-void* AllocateMemoryFromPool(size_t MemorySize, PoolMemoryInfo* handle);
-void PoolDestroy(void* FirstMemoryBlock);
+// The PUBLIC functions that users can call
+PoolMemoryInfo* pool_init(size_t num_small, size_t num_medium, size_t num_large);
+void* pool_alloc(PoolMemoryInfo* handle, size_t size);
+void pool_free(PoolMemoryInfo* handle, void* ptr);
+void pool_destroy(PoolMemoryInfo* handle);
 
-#endif
+#endif // MEMORY_POOL_H

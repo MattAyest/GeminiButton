@@ -50,14 +50,10 @@ PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_
     MemoryHandler->SmallPoolStorage.PoolStartAdr = MemoryHandler->MemoryClaimAdr;
     MemoryHandler->MediumPoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + num_small_blocks*SMALL_BLOCK_SIZE);
     MemoryHandler->LargePoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + num_medium_blocks*MEDIUM_BLOCK_SIZE + num_small_blocks*SMALL_BLOCK_SIZE);
-    //initial positions of each free block
-    MemoryHandler->SmallPoolStorage.freeBlockLocation = MemoryHandler->SmallPoolStorage.PoolStartAdr;
-    MemoryHandler->MediumPoolStorage.freeBlockLocation = MemoryHandler->MediumPoolStorage.PoolStartAdr;
-    MemoryHandler->LargePoolStorage.freeBlockLocation = MemoryHandler->LargePoolStorage.PoolStartAdr;
     //Allocate the pools and return the next free block as a location 
-    MemoryPoolFreeBlockInitiation(MemoryHandler->SmallPoolStorage.TotalBlocks, SMALL_BLOCK_SIZE, MemoryHandler->SmallPoolStorage.PoolStartAdr);
-    MemoryPoolFreeBlockInitiation(MemoryHandler->MediumPoolStorage.TotalBlocks, MEDIUM_BLOCK_SIZE, MemoryHandler->MediumPoolStorage.PoolStartAdr);
-    MemoryPoolFreeBlockInitiation(MemoryHandler->LargePoolStorage.TotalBlocks, LARGE_BLOCK_SIZE, MemoryHandler->LargePoolStorage.PoolStartAdr);
+    MemoryHandler->SmallPoolStorage.FreeBlockLocation = MemoryPoolFreeBlockInitiation(MemoryHandler->SmallPoolStorage.TotalBlocks, SMALL_BLOCK_SIZE, MemoryHandler->SmallPoolStorage.PoolStartAdr);
+    MemoryHandler->MediumPoolStorage.FreeBlockLocation = MemoryPoolFreeBlockInitiation(MemoryHandler->MediumPoolStorage.TotalBlocks, MEDIUM_BLOCK_SIZE, MemoryHandler->MediumPoolStorage.PoolStartAdr);
+    MemoryHandler->LargePoolStorage.FreeBlockLocation = MemoryPoolFreeBlockInitiation(MemoryHandler->LargePoolStorage.TotalBlocks, LARGE_BLOCK_SIZE, MemoryHandler->LargePoolStorage.PoolStartAdr);
 
     return MemoryHandler;
 }
@@ -80,8 +76,9 @@ void* MemoryPoolFreeBlockInitiation(size_t BlockNumber,size_t BlockSize, void* F
 }
 
 void PoolDestroy(void* FirstMemoryBlock, void* Memoryhandle){
-    free(FirstMemoryBlock);
-    free(Memoryhandle);
+    if (handle == NULL) return;
+    free(handle->MemoryClaimAdr); // Free the main storage
+    free(handle);                 // Free the handle itself
 }
 
 
