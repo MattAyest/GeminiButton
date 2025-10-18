@@ -4,11 +4,6 @@
     purpose: this contains the unit tests for the memory control header
 */
 
-/*
-remaining tests
-    Invalid Pointer Free
-*/
-
 //#ifdef UNIT_TEST
 #include <string.h>
 #include <stdlib.h>
@@ -55,6 +50,8 @@ void test_Interleaved_Small_Allocation_And_Free();
 void test_Interleaved_Medium_Allocation_And_Free();
 void test_Interleaved_Large_Allocation_And_Free();
 
+void test_free_invalid_pointer_does_not_corrupt_list();
+
 void test_Freeing_Null_Pointer();
 
 
@@ -92,6 +89,8 @@ int main(void) {
     RUN_TEST(test_Interleaved_Small_Allocation_And_Free);
     RUN_TEST(test_Interleaved_Medium_Allocation_And_Free);
     RUN_TEST(test_Interleaved_Large_Allocation_And_Free);
+
+    RUN_TEST(test_free_invalid_pointer_does_not_corrupt_list);
 
     RUN_TEST(test_Freeing_Null_Pointer);
 
@@ -151,13 +150,21 @@ void test_Interleaved_Medium_Allocation_And_Free(){
 void test_Interleaved_Large_Allocation_And_Free(){
     helper_Interleaved_Allocation_And_Free(LARGE_BLOCK_SIZE);
 }
+//Test to see if i can free a pointer that doesnt belong to my pool
+void test_free_invalid_pointer_does_not_corrupt_list(){
+    int stack_variable = 100;
+    void* invalid_pointer = (void*)&stack_variable;
+    
+    Pool_Free(invalid_pointer, Memory_Handler);//Passes if this does nothing
 
-
+    void* pointer = Pool_Alloc(10, Memory_Handler);
+    TEST_ASSERT_NOT_NULL(pointer);
+    Pool_Free(pointer, Memory_Handler);
+}
 //Freeing NULL Pointer
 void test_Freeing_Null_Pointer(){
     Pool_Free(NULL, Memory_Handler);
 }
-
 //HELPER FUNCTIONS
 void helper_Small_Pool_Exhaustion(size_t Block_Size, size_t Pool_Size){
     //see what happens if you pull more than the max pool ini values
