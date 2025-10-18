@@ -75,12 +75,11 @@ void* MemoryPoolFreeBlockInitiation(size_t BlockNumber,size_t BlockSize, void* F
    return FirstMemoryBlock;
 }
 
-void PoolDestroy(void* FirstMemoryBlock, void* Memoryhandle){
+void pool_destroy(PoolMemoryInfo* handle) {
     if (handle == NULL) return;
     free(handle->MemoryClaimAdr); // Free the main storage
     free(handle);                 // Free the handle itself
 }
-
 
 
 
@@ -137,7 +136,7 @@ void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
 
     PoolInfo* MediumPoolInfo = &handle->MediumPoolStorage;
     size_t MediumPoolSize = MediumPoolInfo->TotalBlocks * MEDIUM_BLOCK_SIZE; 
-    uint8_t* MediumPoolStartPointer = handle->PoolStartAdr + SmallPoolSize + MediumPoolSize;
+    uint8_t* MediumPoolStartPointer = handle->MediumPoolStorage.PoolStartAdr + SmallPoolSize + MediumPoolSize;
     //go to return function providing the struct size that needs to be returned
     if (pointer >= MediumPoolStartPointer && pointer < (MediumPoolStartPointer + MediumPoolSize)){
         FreeBlock* ReturnBlockFree  = (FreeBlock*)Packet;
@@ -148,7 +147,7 @@ void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
     
     PoolInfo* LargePoolInfo = &handle->LargePoolStorage;
     size_t LargePoolSize = LargePoolInfo->TotalBlocks * LARGE_BLOCK_SIZE; 
-    uint8_t* LargePoolStartPointer = handle->PoolStartAdr + SmallPoolSize + MediumPoolSize + LargePoolSize;
+    uint8_t* LargePoolStartPointer = handle->LargePoolStorage.PoolStartAdr + SmallPoolSize + MediumPoolSize + LargePoolSize;
     //go to return function providing the struct size that needs to be returned
     if (pointer >= LargePoolStartPointer && pointer < (LargePoolStartPointer + LargePoolSize)){
         FreeBlock* ReturnBlockFree  = (FreeBlock*)Packet;
