@@ -1,5 +1,7 @@
 
 #include "MemoryPool.h" 
+#include <stdlib.h>
+
 
 // block size declaration
 #define SMALL_BLOCK_SIZE 64
@@ -24,6 +26,16 @@ typedef struct{//nested structs for storage information
 typedef struct FreeBlock {
     struct FreeBlock* next;//pointer pointing to the next free memory block 
 } FreeBlock;
+
+//PROTOTYPES
+PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks);
+void PoolDestroy(PoolMemoryInfo* handle);
+void* PoolAlloc(size_t MemorySize, PoolMemoryInfo* handle);
+void PoolFree(void* Packet, PoolMemoryInfo* handle);
+
+void* InternalPoolMemoryBlockIni(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock);
+uint8_t* InternalPoolAllocation(PoolInfo* FirstMemoryBlock);
+
 
 //FUNCTIONS
 PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks){
@@ -50,15 +62,15 @@ PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_
     MemoryHandler->MediumPoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + num_small_blocks*SMALL_BLOCK_SIZE);
     MemoryHandler->LargePoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + num_medium_blocks*MEDIUM_BLOCK_SIZE + num_small_blocks*SMALL_BLOCK_SIZE);
     //Allocate the pools and return the next free block as a location 
-    MemoryHandler->SmallPoolStorage.FreeBlockLocation = MemoryPoolFreeBlockInitiation(MemoryHandler->SmallPoolStorage.TotalBlocks, SMALL_BLOCK_SIZE, MemoryHandler->SmallPoolStorage.PoolStartAdr);
-    MemoryHandler->MediumPoolStorage.FreeBlockLocation = MemoryPoolFreeBlockInitiation(MemoryHandler->MediumPoolStorage.TotalBlocks, MEDIUM_BLOCK_SIZE, MemoryHandler->MediumPoolStorage.PoolStartAdr);
-    MemoryHandler->LargePoolStorage.FreeBlockLocation = MemoryPoolFreeBlockInitiation(MemoryHandler->LargePoolStorage.TotalBlocks, LARGE_BLOCK_SIZE, MemoryHandler->LargePoolStorage.PoolStartAdr);
+    MemoryHandler->SmallPoolStorage.FreeBlockLocation = InternalPoolMemoryBlockIni(MemoryHandler->SmallPoolStorage.TotalBlocks, SMALL_BLOCK_SIZE, MemoryHandler->SmallPoolStorage.PoolStartAdr);
+    MemoryHandler->MediumPoolStorage.FreeBlockLocation = InternalPoolMemoryBlockIni(MemoryHandler->MediumPoolStorage.TotalBlocks, MEDIUM_BLOCK_SIZE, MemoryHandler->MediumPoolStorage.PoolStartAdr);
+    MemoryHandler->LargePoolStorage.FreeBlockLocation = InternalPoolMemoryBlockIni(MemoryHandler->LargePoolStorage.TotalBlocks, LARGE_BLOCK_SIZE, MemoryHandler->LargePoolStorage.PoolStartAdr);
 
     return MemoryHandler;
 }
 
 //function for pool allocation and size
-void* MemoryPoolFreeBlockInitiation(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock){
+void* InternalPoolMemoryBlockIni(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock){
    uint8_t* start_addr = (uint8_t*)FirstMemoryBlock;
    for (size_t i = 0; i < BlockNumber; i++){
         uint8_t* current_addr_raw = start_addr + (i * BlockSize);
@@ -74,37 +86,34 @@ void* MemoryPoolFreeBlockInitiation(size_t BlockNumber,size_t BlockSize, void* F
    return FirstMemoryBlock;
 }
 
-void pool_destroy(PoolMemoryInfo* handle) {
+void PoolDestroy(PoolMemoryInfo* handle) {
     if (handle == NULL) return;
     free(handle->MemoryClaimAdr); // Free the main storage
     free(handle);                 // Free the handle itself
 }
 
-
-
-
 //function for pool allocation and size
-void* AllocateMemoryFromPool(size_t MemorySize, PoolMemoryInfo* handle) {
+void* PoolAlloc(size_t MemorySize, PoolMemoryInfo* handle) {
     //Get the size that needs to be allocated
     if (MemorySize <= 0) {
         return NULL;
     }
     //need to update with the new pool freeblock location adress
     if (MemorySize <= SMALL_BLOCK_SIZE) {
-        return  PoolAllocation(&handle->SmallPoolStorage);
+        return  InternalPoolAllocation(&handle->SmallPoolStorage);
     }
     if (MemorySize <= MEDIUM_BLOCK_SIZE) {
-            return PoolAllocation(&handle->MediumPoolStorage);
+            return InternalPoolAllocation(&handle->MediumPoolStorage);
     }
     if (MemorySize <= LARGE_BLOCK_SIZE) {
-            return PoolAllocation(&handle->LargePoolStorage);
+            return InternalPoolAllocation(&handle->LargePoolStorage);
     } else {
         return NULL;
     }
 }
 
 //Memory handler 
-uint8_t* PoolAllocation(PoolInfo* FirstMemoryBlock){
+uint8_t* InternalPoolAllocation(PoolInfo* FirstMemoryBlock){
     //get next free block from small pool storage location
     FreeBlock* block_to_return  = (FreeBlock*)FirstMemoryBlock->FreeBlockLocation;
     //read location stored in next block 
@@ -115,7 +124,7 @@ uint8_t* PoolAllocation(PoolInfo* FirstMemoryBlock){
 }
 
 //function for pool deallocation
-void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
+void PoolFree(void* Packet, PoolMemoryInfo* handle){
     if (handle == NULL || Packet == NULL){
         return;
     }
@@ -135,7 +144,7 @@ void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
 
     PoolInfo* MediumPoolInfo = &handle->MediumPoolStorage;
     size_t MediumPoolSize = MediumPoolInfo->TotalBlocks * MEDIUM_BLOCK_SIZE; 
-    uint8_t* MediumPoolStartPointer = handle->MediumPoolStorage.PoolStartAdr + SmallPoolSize + MediumPoolSize;
+    uint8_t* MediumPoolStartPointer = handle->MediumPoolStorage.PoolStartAdr;
     //go to return function providing the struct size that needs to be returned
     if (pointer >= MediumPoolStartPointer && pointer < (MediumPoolStartPointer + MediumPoolSize)){
         FreeBlock* ReturnBlockFree  = (FreeBlock*)Packet;
@@ -146,7 +155,7 @@ void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle){
     
     PoolInfo* LargePoolInfo = &handle->LargePoolStorage;
     size_t LargePoolSize = LargePoolInfo->TotalBlocks * LARGE_BLOCK_SIZE; 
-    uint8_t* LargePoolStartPointer = handle->LargePoolStorage.PoolStartAdr + SmallPoolSize + MediumPoolSize + LargePoolSize;
+    uint8_t* LargePoolStartPointer = handle->LargePoolStorage.PoolStartAdr;
     //go to return function providing the struct size that needs to be returned
     if (pointer >= LargePoolStartPointer && pointer < (LargePoolStartPointer + LargePoolSize)){
         FreeBlock* ReturnBlockFree  = (FreeBlock*)Packet;

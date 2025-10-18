@@ -3,32 +3,39 @@
     Date 04/10/2025
     purpose: this contains the unit tests for the memory control header
 */
+//#ifdef UNIT_TEST
 
 //Filling blocks with known repeating 01 that can be written as 0xAA
+#include <string.h>
+#include <stdlib.h>
 
-//#ifdef UNIT_TEST
+
 #include <unity.h>
-#include <MemoryPool.h>
+#include "MemoryPool.h"
 
 static PoolMemoryInfo* MemoryHandler;
 const uint8_t TEST_PATTERN = 0xAA;
 // block size declaration
+
+//THESE NEED TO MATCH THE .C FILE DEFINITIONS
 #define SMALL_BLOCK_SIZE 64
 #define MEDIUM_BLOCK_SIZE 512
 #define LARGE_BLOCK_SIZE 2048
 
 
 void setUp(void) {
+    //TODO: check this returns null
     MemoryHandler = PoolIni(5,5,5);//small number of blocks so works on all systems
+    TEST_ASSERT_NOT_NULL(MemoryHandler);
 }
 
 void tearDown(void) {
-    pool_destroy(MemoryHandler);
+    PoolDestroy(MemoryHandler);
 }
 
 void helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used(size_t MemorySize, size_t BlockSize){
     //Get memory allocations
-    void* BlockAdressPointer = AllocateMemoryFromPool(MemorySize,MemoryHandler);
+    void* BlockAdressPointer = PoolAlloc(MemorySize,MemoryHandler);
     TEST_ASSERT_NOT_NULL(BlockAdressPointer);
 
     //setting chunks to read in as 1 byte
@@ -40,42 +47,60 @@ void helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used(size_t MemorySize, si
         TEST_ASSERT_EQUAL_UINT8(TEST_PATTERN, MemoryBlockChunk[i]);
     }
     //free up block
-    FreeMemoryFromPool(BlockAdressPointer, MemoryHandler);
+    PoolFree(BlockAdressPointer, MemoryHandler);
 }
 
-void Small_Testing_Overspill_To_next_Block(){
+//test to see if it returns the same value  
 
+void helper_freeblock_system(size_t MemorySize){
+    //get block and remember adress location
+    void* BlockAdressPointer = PoolAlloc(MemorySize,MemoryHandler);
+    TEST_ASSERT_NOT_NULL(BlockAdressPointer);
+    void* MemoryAddressTempStorage = BlockAdressPointer;
+    PoolFree(BlockAdressPointer, MemoryHandler);
+
+    //try again and compare values
+    BlockAdressPointer = PoolAlloc(MemorySize,MemoryHandler);
+    TEST_ASSERT_NOT_NULL(BlockAdressPointer);
+    TEST_ASSERT_EQUAL_PTR(MemoryAddressTempStorage, BlockAdressPointer);
+    PoolFree(BlockAdressPointer, MemoryHandler);
 }
 
-void Small_confirm_memory_Returns_Same_Pointer_After_deallocation(void) {
-    // ask to allocate memorypool and confirm it is working;
-    u_int8_t* SmallBlockAdress = AllocateMemoryFromPool(25,MemoryHandler);
-    //Return memory block 
-    //get new block adress
-    //test it is confirmed
+void test_Small_Block_Group(){
+    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((SMALL_BLOCK_SIZE-1), SMALL_BLOCK_SIZE);
+    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((SMALL_BLOCK_SIZE), SMALL_BLOCK_SIZE);
+}
+void test_Medium_Block_Group(){
+    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((MEDIUM_BLOCK_SIZE-1), MEDIUM_BLOCK_SIZE);
+    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((MEDIUM_BLOCK_SIZE), MEDIUM_BLOCK_SIZE);
+}
+void test_Large_Block_Group(){
+    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((LARGE_BLOCK_SIZE-1), LARGE_BLOCK_SIZE);
+    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((LARGE_BLOCK_SIZE), LARGE_BLOCK_SIZE);
 }
 
+void test_Small_reallocation(){
+    helper_freeblock_system(SMALL_BLOCK_SIZE);
+}
+void test_Medium_reallocation(){
+    helper_freeblock_system(MEDIUM_BLOCK_SIZE);
+}
+void test_Large_reallocation(){
+    helper_freeblock_system(LARGE_BLOCK_SIZE);
+}
 
-void test_Small_Block_Test_Group(){
-    helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used((SMALL_BLOCK_SIZE-1), SMALL_BLOCK_SIZE);
-    helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used((SMALL_BLOCK_SIZE), SMALL_BLOCK_SIZE);
-}
-void test_Medium_Block_Test_Group(){
-    helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used((MEDIUM_BLOCK_SIZE-1), MEDIUM_BLOCK_SIZE);
-    helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used((MEDIUM_BLOCK_SIZE), MEDIUM_BLOCK_SIZE);
-}
-void test_Large_Block_Test_Group(){
-    helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used((LARGE_BLOCK_SIZE-1), LARGE_BLOCK_SIZE);
-    helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used((LARGE_BLOCK_SIZE), LARGE_BLOCK_SIZE);
-}
-void app_main(void) { // On ESP32, or use main() for native tests
+int main(void) { // On ESP32, or use main() for native tests
+
     UNITY_BEGIN(); // Starts the test runner
 
     // Run tests that memory gets allocated correctly
-    RUN_TEST(test_Small_Block_Test_Group);
-    RUN_TEST(test_Medium_Block_Test_Group);
-    RUN_TEST(test_Large_Block_Test_Group);
+    RUN_TEST(test_Small_Block_Group);
+    RUN_TEST(test_Medium_Block_Group);
+    RUN_TEST(test_Large_Block_Group);
+    RUN_TEST(test_Small_reallocation);
+    RUN_TEST(test_Medium_reallocation);
+    RUN_TEST(test_Large_reallocation);
 
-    UNITY_END(); // Ends the test runner and prints a summary
+    return UNITY_END(); // Ends the test runner and prints a summary
 }
 //#endif
