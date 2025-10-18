@@ -10,9 +10,9 @@
 typedef struct PoolMemoryInfo PoolMemoryInfo;
 
 // The PUBLIC functions that users can call
-PoolMemoryInfo* pool_init(size_t num_small, size_t num_medium, size_t num_large);
-void* pool_alloc(PoolMemoryInfo* handle, size_t size);
-void pool_free(PoolMemoryInfo* handle, void* ptr);
-void pool_destroy(PoolMemoryInfo* handle);
+PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks);
+void* AllocateMemoryFromPool(size_t MemorySize, PoolMemoryInfo* handle);
+void FreeMemoryFromPool(void* Packet, PoolMemoryInfo* handle);
+void pool_destroy(PoolMemoryInfo* handle) ;
 
 #endif // MEMORY_POOL_H

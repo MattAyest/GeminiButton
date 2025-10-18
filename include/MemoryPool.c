@@ -26,7 +26,6 @@ typedef struct FreeBlock {
 } FreeBlock;
 
 //FUNCTIONS
-
 PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks){
     PoolMemoryInfo* MemoryHandler = malloc(sizeof(PoolMemoryInfo));
     if (MemoryHandler == NULL){
