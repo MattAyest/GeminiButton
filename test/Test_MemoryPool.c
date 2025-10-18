@@ -3,6 +3,20 @@
     Date 04/10/2025
     purpose: this contains the unit tests for the memory control header
 */
+
+
+//remaining tests
+
+/*
+    Pool Exhaustion
+    Freeing NULL Pointer
+    Double Free
+    Interleaved Allocation/Free
+    Invalid Pointer Free
+*/
+
+
+
 //#ifdef UNIT_TEST
 
 //Filling blocks with known repeating 01 that can be written as 0xAA
@@ -13,9 +27,14 @@
 #include <unity.h>
 #include "MemoryPool.h"
 
+//standard values
 static PoolMemoryInfo* MemoryHandler;
 const uint8_t TEST_PATTERN = 0xAA;
-// block size declaration
+const size_t SmallPoolSize = 5;
+const size_t MediumPoolSize = 5;
+const size_t LargePoolSize = 5;
+
+
 
 //THESE NEED TO MATCH THE .C FILE DEFINITIONS
 #define SMALL_BLOCK_SIZE 64
@@ -25,7 +44,7 @@ const uint8_t TEST_PATTERN = 0xAA;
 
 void setUp(void) {
     //TODO: check this returns null
-    MemoryHandler = PoolIni(5,5,5);//small number of blocks so works on all systems
+    MemoryHandler = PoolIni(SmallPoolSize,MediumPoolSize,LargePoolSize);//small number of blocks so works on all systems
     TEST_ASSERT_NOT_NULL(MemoryHandler);
 }
 
@@ -33,10 +52,29 @@ void tearDown(void) {
     PoolDestroy(MemoryHandler);
 }
 
-void helper_test_Memorypool_Gives_Pointer_that_Can_Be_Used(size_t MemorySize, size_t BlockSize){
+void test_Small_Pool_Exhaustion(){
+    //see what happens if you pull more than the max pool ini values
+    //loop pool allocation until poolsize +1
+    void* BlockAdressPointer [SmallPoolSize];
+    for (size_t i = 0; i < SmallPoolSize; i++) {
+        BlockAdressPointer[i] = PoolAlloc(SMALL_BLOCK_SIZE,MemoryHandler);
+        TEST_ASSERT_NOT_NULL_MESSAGE(BlockAdressPointer[i], "Allocation failed unexpectedly before pool was full.");
+    }
+    
+    TEST_ASSERT_NULL_MESSAGE(PoolAlloc(SMALL_BLOCK_SIZE,MemoryHandler), "Allocation succeeded unexpectedly when pool should be full.");
+
+    for (int i = 0; i < (SmallPoolSize); ++i) {
+        PoolFree(BlockAdressPointer[i], MemoryHandler);
+    }
+
+    
+}
+
+
+void helper_Confirm_valid_Pool_Creation(size_t MemorySize, size_t BlockSize){
     //Get memory allocations
     void* BlockAdressPointer = PoolAlloc(MemorySize,MemoryHandler);
-    TEST_ASSERT_NOT_NULL(BlockAdressPointer);
+    TEST_ASSERT_NOT_NULL_MESSAGE(BlockAdressPointer,  "Allocation failed unexpectedly before pool was full.");
 
     //setting chunks to read in as 1 byte
     uint8_t* MemoryBlockChunk = (uint8_t*)BlockAdressPointer;
@@ -67,16 +105,16 @@ void helper_freeblock_system(size_t MemorySize){
 }
 
 void test_Small_Block_Group(){
-    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((SMALL_BLOCK_SIZE-1), SMALL_BLOCK_SIZE);
-    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((SMALL_BLOCK_SIZE), SMALL_BLOCK_SIZE);
+    helper_Confirm_valid_Pool_Creation((SMALL_BLOCK_SIZE-1), SMALL_BLOCK_SIZE);
+    helper_Confirm_valid_Pool_Creation((SMALL_BLOCK_SIZE), SMALL_BLOCK_SIZE);
 }
 void test_Medium_Block_Group(){
-    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((MEDIUM_BLOCK_SIZE-1), MEDIUM_BLOCK_SIZE);
-    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((MEDIUM_BLOCK_SIZE), MEDIUM_BLOCK_SIZE);
+    helper_Confirm_valid_Pool_Creation((MEDIUM_BLOCK_SIZE-1), MEDIUM_BLOCK_SIZE);
+    helper_Confirm_valid_Pool_Creation((MEDIUM_BLOCK_SIZE), MEDIUM_BLOCK_SIZE);
 }
 void test_Large_Block_Group(){
-    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((LARGE_BLOCK_SIZE-1), LARGE_BLOCK_SIZE);
-    helper_Memorypool_Gives_Pointer_that_Can_Be_Used((LARGE_BLOCK_SIZE), LARGE_BLOCK_SIZE);
+    helper_Confirm_valid_Pool_Creation((LARGE_BLOCK_SIZE-1), LARGE_BLOCK_SIZE);
+    helper_Confirm_valid_Pool_Creation((LARGE_BLOCK_SIZE), LARGE_BLOCK_SIZE);
 }
 
 void test_Small_reallocation(){
@@ -89,7 +127,10 @@ void test_Large_reallocation(){
     helper_freeblock_system(LARGE_BLOCK_SIZE);
 }
 
-int main(void) { // On ESP32, or use main() for native tests
+
+
+
+int main(void) {
 
     UNITY_BEGIN(); // Starts the test runner
 
@@ -100,7 +141,7 @@ int main(void) { // On ESP32, or use main() for native tests
     RUN_TEST(test_Small_reallocation);
     RUN_TEST(test_Medium_reallocation);
     RUN_TEST(test_Large_reallocation);
-
+    RUN_TEST(test_Small_Pool_Exhaustion);
     return UNITY_END(); // Ends the test runner and prints a summary
 }
 //#endif
