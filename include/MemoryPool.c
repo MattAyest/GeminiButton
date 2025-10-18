@@ -112,6 +112,9 @@ void* PoolAlloc(size_t MemorySize, PoolMemoryInfo* handle) {
 
 //Memory handler 
 static void* InternalPoolAllocation(PoolInfo* FirstMemoryBlock){
+    if (FirstMemoryBlock->FreeBlockLocation == NULL) {
+        return NULL; // Pool is empty, allocation fails
+    }
     //get next free block from small pool storage location
     FreeBlock* block_to_return  = (FreeBlock*)FirstMemoryBlock->FreeBlockLocation;
     //read location stored in next block 
