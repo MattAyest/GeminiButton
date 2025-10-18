@@ -4,7 +4,8 @@
     purpose: this contains the unit tests for the memory control header
 */
 
-//#ifdef UNIT_TEST
+#ifdef UNIT_TEST
+
 #include <string.h>
 #include <stdlib.h>
 #include <unity.h>
@@ -16,7 +17,7 @@
 #define LARGE_BLOCK_SIZE 2048
 
 //standard values
-static Pool_Memory_Info* Memory_Handler;
+static PoolMemoryInfo* Memory_Handler;
 const uint8_t TEST_PATTERN = 0xAA;//Filling blocks with known repeating 01 that can be written as 0xAA
 const size_t Small_Pool_Size = 5;
 const size_t Medium_Pool_Size = 5;
@@ -236,4 +237,4 @@ void helper_Interleaved_Allocation_And_Free(size_t Memory_Size){
     Pool_Free(Block_Adress_Pointer_4, Memory_Handler);
 }
 
-//#endif
+#endif
