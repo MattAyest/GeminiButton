@@ -9,9 +9,9 @@
 
 
 // The PUBLIC functions that users can call
-PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks);
-void* PoolAlloc(size_t MemorySize, PoolMemoryInfo* handle);
-void PoolFree(void* Packet, PoolMemoryInfo* handle);
-void PoolDestroy(PoolMemoryInfo* handle) ;
+Pool_Memory_Info* Pool_Ini(size_t num_small_blocks, size_t num_medium_blocks, size_t num_large_blocks);
+void* Pool_Alloc(size_t MemorySize, Pool_Memory_Info* handle);
+void Pool_Free(void* Packet, Pool_Memory_Info* handle);
+void Pool_Destroy(Pool_Memory_Info* handle) ;
 
-#endif // MEMORY_POOL_H
+#endif // MEMORY_POOL
