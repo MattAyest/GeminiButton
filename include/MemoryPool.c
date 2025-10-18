@@ -33,8 +33,8 @@ void PoolDestroy(PoolMemoryInfo* handle);
 void* PoolAlloc(size_t MemorySize, PoolMemoryInfo* handle);
 void PoolFree(void* Packet, PoolMemoryInfo* handle);
 
-void* InternalPoolMemoryBlockIni(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock);
-uint8_t* InternalPoolAllocation(PoolInfo* FirstMemoryBlock);
+static void* InternalPoolMemoryBlockIni(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock);
+static void* InternalPoolAllocation(PoolInfo* FirstMemoryBlock);
 
 
 //FUNCTIONS
@@ -59,8 +59,8 @@ PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_
     MemoryHandler->LargePoolStorage.TotalBlocks = num_large_blocks;
     //initial start position of each Pool
     MemoryHandler->SmallPoolStorage.PoolStartAdr = MemoryHandler->MemoryClaimAdr;
-    MemoryHandler->MediumPoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + num_small_blocks*SMALL_BLOCK_SIZE);
-    MemoryHandler->LargePoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + num_medium_blocks*MEDIUM_BLOCK_SIZE + num_small_blocks*SMALL_BLOCK_SIZE);
+    MemoryHandler->MediumPoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + (num_small_blocks*SMALL_BLOCK_SIZE));
+    MemoryHandler->LargePoolStorage.PoolStartAdr = (MemoryHandler->MemoryClaimAdr + (num_medium_blocks*MEDIUM_BLOCK_SIZE) + (num_small_blocks*SMALL_BLOCK_SIZE));
     //Allocate the pools and return the next free block as a location 
     MemoryHandler->SmallPoolStorage.FreeBlockLocation = InternalPoolMemoryBlockIni(MemoryHandler->SmallPoolStorage.TotalBlocks, SMALL_BLOCK_SIZE, MemoryHandler->SmallPoolStorage.PoolStartAdr);
     MemoryHandler->MediumPoolStorage.FreeBlockLocation = InternalPoolMemoryBlockIni(MemoryHandler->MediumPoolStorage.TotalBlocks, MEDIUM_BLOCK_SIZE, MemoryHandler->MediumPoolStorage.PoolStartAdr);
@@ -70,7 +70,7 @@ PoolMemoryInfo* PoolIni(size_t num_small_blocks, size_t num_medium_blocks, size_
 }
 
 //function for pool allocation and size
-void* InternalPoolMemoryBlockIni(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock){
+static void* InternalPoolMemoryBlockIni(size_t BlockNumber,size_t BlockSize, void* FirstMemoryBlock){
    uint8_t* start_addr = (uint8_t*)FirstMemoryBlock;
    for (size_t i = 0; i < BlockNumber; i++){
         uint8_t* current_addr_raw = start_addr + (i * BlockSize);
@@ -100,20 +100,18 @@ void* PoolAlloc(size_t MemorySize, PoolMemoryInfo* handle) {
     }
     //need to update with the new pool freeblock location adress
     if (MemorySize <= SMALL_BLOCK_SIZE) {
-        return  InternalPoolAllocation(&handle->SmallPoolStorage);
-    }
-    if (MemorySize <= MEDIUM_BLOCK_SIZE) {
-            return InternalPoolAllocation(&handle->MediumPoolStorage);
-    }
-    if (MemorySize <= LARGE_BLOCK_SIZE) {
-            return InternalPoolAllocation(&handle->LargePoolStorage);
+        return InternalPoolAllocation(&handle->SmallPoolStorage);
+    } else if (MemorySize <= MEDIUM_BLOCK_SIZE) {
+        return InternalPoolAllocation(&handle->MediumPoolStorage);
+    } else if (MemorySize <= LARGE_BLOCK_SIZE) {
+        return InternalPoolAllocation(&handle->LargePoolStorage);
     } else {
-        return NULL;
+        return NULL; // Size too large
     }
 }
 
 //Memory handler 
-uint8_t* InternalPoolAllocation(PoolInfo* FirstMemoryBlock){
+static void* InternalPoolAllocation(PoolInfo* FirstMemoryBlock){
     //get next free block from small pool storage location
     FreeBlock* block_to_return  = (FreeBlock*)FirstMemoryBlock->FreeBlockLocation;
     //read location stored in next block 
