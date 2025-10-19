@@ -59,13 +59,16 @@ static int s_retry_num = 0;
 // Global state for chat
 char *cached_content_name = NULL; // Stores the "cachedContents/..." token
 
-static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
-static void gemini_api_task(void *pvParameters);
 
 
 void app_main(void){
     //how should this code work
     //it should connect to wifi securley and make sure it remains connected
+        //1 - initialise nvs to store calibration data
+        //2 - wifi subsystem initialization
+        //3 - wifi connection settup
+        //4 - wifi connection manager
+
     //it should wait for a button press to start forming the audio input
     //while the button is pressed it should listen to the audio stream and make a audio buffer
     //when a seperate button is pressed the audio buffer (not the question) should be sent to gemini
@@ -75,8 +78,29 @@ void app_main(void){
 
 }
 
+static void nvs_init(void){
+    //initialise network inferface TCP/IP stack 
+    //create default event group
+}
+
+static void wifi_init_sub_system(void){
+    //create wifi station interface
+    //initialise the wifi driver
+}
 
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data){
+    //event handler registration
+    //wifi and ip event setups
+    //register event handlers
+        //wifi event sta start
+        //wifi event sta connected
+        //ip event sta got ip
+        //wifi event sta disconnected
 
+}
+
+static void wifi_connection_manager(void){
+    //set mode and configuration 
+    //start wifi driver
 
 }
