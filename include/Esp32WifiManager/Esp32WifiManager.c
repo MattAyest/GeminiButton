@@ -21,6 +21,7 @@ esp_err_t wifi_manager_wait_for_connection(TickType_t xTicksToWait);
 static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data);
 void wifi_manager_init_station();
 static void handle_sta_start();
+static void handle_sta_disconnected();
 static void handle_sta_got_ip(void* event_data);
 
 //Log and error count variables
@@ -71,8 +72,17 @@ static void wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t e
 //what functions do I need and how can I write them for unit testing
 void wifi_manager_init_station(){
     s_wifi_event_group = xEventGroupCreate();//Flag holder
-    //initiate and check for errors
-    ESP_ERROR_CHECK(nvs_flash_init());
+    
+    //checks to see if the nvs has an error and if recoverable just rewrite over it
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_LOGW(TAG, "NVS partition was full or corrupt, erasing...");
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init(); // Retry initialization
+    }
+    ESP_ERROR_CHECK(ret);
+
+
     ESP_ERROR_CHECK(esp_netif_init());
     ESP_ERROR_CHECK(esp_event_loop_create_default());
     esp_netif_create_default_wifi_sta();
