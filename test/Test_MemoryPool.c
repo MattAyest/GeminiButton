@@ -5,20 +5,18 @@
 */
 
 #ifdef UNIT_TEST
-
-#include "M#include " include / MemoryPool / MemoryPool.h "
+#include "MemoryPool.h"
 #include <stdlib.h>
 #include <string.h>
 #include <unity.h>
-emoryPool.h "
 
 // THESE NEED TO MATCH THE .C FILE DEFINITIONS
 #define SMALL_BLOCK_SIZE 64
 #define MEDIUM_BLOCK_SIZE 512
 #define LARGE_BLOCK_SIZE 2048
 
-    // standard values
-    static PoolMemoryInfo *Memory_Handler;
+// standard values
+static PoolMemoryInfo *Memory_Handler;
 const uint8_t TEST_PATTERN =
     0xAA; // Filling blocks with known repeating 01 that can be written as 0xAA
 const size_t Small_Pool_Size = 5;
@@ -58,7 +56,7 @@ void test_free_invalid_pointer_does_not_corrupt_list();
 void test_Freeing_Null_Pointer();
 
 //================================CODE
-//START=============================================
+// START=============================================
 void setUp(void) {
   // TODO: check this returns null
   Memory_Handler = Pool_Ini(
