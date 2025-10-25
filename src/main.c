@@ -25,9 +25,9 @@
 
 // Header calls
 //- calling all my header files to allow my function calls
-#include "GeminiAPI.h"
-#include "I2S_Audio_Controller.h"
-#include "include/MemoryPool/MemoryPool.h"
+// #include "GeminiAPI.h"
+// #include "I2S_Audio_Controller.h"
+#include "MemoryPool.h"
 
 // Configuration
 #define GEMINI_API_KEY CONFIG_GEMINI_API_KEY

@@ -1,8 +1,8 @@
 [
     {
-        "command": "/usr/bin/gcc -o .pio/build/native/src/main.o -c -DPLATFORMIO=60118 -Iinclude -Isrc -I/home/matthew/.platformio/platforms/native/builder/include/MemoryPool -I.pio/libdeps/native/framework-espidf/components/esp_common/include -I.pio/libdeps/native/framework-espidf/components/esp_system/include -I.pio/libdeps/native/framework-espidf/components/log/include -I.pio/libdeps/native/framework-espidf/components/newlib/platform_include -I.pio/libdeps/native/framework-espidf/components/freertos/config/include/freertos -I.pio/libdeps/native/framework-espidf/components/freertos/esp_additions/include/freertos -I.pio/libdeps/native/framework-espidf/components/freertos/port/xtensa/include -I.pio/libdeps/native/framework-espidf/components/freertos/include src/main.c",
+        "command": "/usr/bin/gcc -o .pio/build/native/libcfc/MemoryPool/MemoryPool.o -c -std=gnu11 -Wall -Wextra -DPLATFORMIO=60118 -I/home/matthew/.platformio/platforms/native/builder/lib/WifiManager -Ilib/MemoryPool -I/home/matthew/.platformio/platforms/native/builder/test/test_wifi_manager/fakes -I/home/matthew/.platformio/packages/framework-espidf/components/esp_common/include -I/home/matthew/.platformio/packages/framework-espidf/components/esp_system/include -I/home/matthew/.platformio/packages/framework-espidf/components/log/include -I/home/matthew/.platformio/packages/framework-espidf/components/newlib/platform_include -I/home/matthew/.platformio/packages/framework-espidf/components/freertos/config/include/freertos -I/home/matthew/.platformio/packages/framework-espidf/components/freertos/esp_additions/include/freertos -I.pio/build/esp32s3_gemini/config lib/MemoryPool/MemoryPool.c",
         "directory": "/home/matthew/Desktop/Projects/GeminiButton",
-        "file": "src/main.c",
-        "output": ".pio/build/native/src/main.o"
+        "file": "lib/MemoryPool/MemoryPool.c",
+        "output": ".pio/build/native/libcfc/MemoryPool/MemoryPool.o"
     }
 ]

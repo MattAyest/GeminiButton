@@ -1,0 +1,15 @@
+CompileFlags:
+  # Tell clangd the DB is in the root
+  CompilationDatabase: "." 
+  # Add ONLY the extra include paths needed
+  Add:
+    # --- ESP-IDF paths ---
+    - -I/home/matthew/.platformio/packages/framework-espidf/components # <-- Add this broader path
+    - -I/home/matthew/.platformio/packages/framework-espidf/components/esp_common/include
+    - -I/home/matthew/.platformio/packages/framework-espidf/components/esp_system/include
+    # ... add ANY others if headers from them are directly included or cause errors ...
+    - -I$PROJECT_BUILD_DIR/esp32s3_gemini/config
+    # --- Project paths (maybe redundant if DB includes them for test files, but safe to add) ---
+    - -Itest/test_wifi_manager/fakes
+    - -Ilib/WifiManager
+    - -Ilib/MemoryPool
