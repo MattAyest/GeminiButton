@@ -17,3 +17,22 @@ FAKE_VALUE_FUNC(EventBits_t, xEventGroupClearBits, EventGroupHandle_t,
 
 #endif // fndef Test_Esp32WifiManager.c"
 */
+
+#include <unity.h>
+
+// ... include your headers and fakes ...
+
+void setUp(void) { /* Reset fakes */ }
+void tearDown(void) {}
+
+void test_YourFirstWifiTest(void) {
+  // ... Arrange, Act, Assert ...
+  TEST_ASSERT_TRUE(1); // Placeholder test
+}
+
+int main(void) {
+  UNITY_BEGIN();
+  RUN_TEST(test_YourFirstWifiTest);
+  // Add RUN_TEST for all your wifi tests
+  return UNITY_END();
+}

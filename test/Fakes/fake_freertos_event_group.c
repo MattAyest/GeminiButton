@@ -3,6 +3,7 @@
  * creator: Matthew Ayestaran
  * Date:10/25/2025
  * */
+#include "freertos/freeRTOS.h"
 
 #include "freertos/event_groups.h" // Include real header for types
 
