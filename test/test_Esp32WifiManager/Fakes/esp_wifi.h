@@ -1,7 +1,10 @@
 #ifndef FAKE_ESP_WIFI_H
 #define FAKE_ESP_WIFI_H
-
-#include <stdint.h> // For int32_t
+#define WIFI_EVENT "WIFI_EVENT" // Use a string for the base
+#define WIFI_EVENT_STA_START 1
+#define WIFI_EVENT_STA_DISCONNECTED 2
+#define ESP_EVENT_ANY_ID 0 // This is also used by your code
+#include <stdint.h>        // For int32_t
 
 // --- Add fake types your code needs ---
 typedef int32_t esp_err_t; // You should have this in a central fake header
