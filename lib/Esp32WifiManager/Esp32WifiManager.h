@@ -4,7 +4,7 @@
     date:19/10/2025
 */
 
-#ifdef ESP32WIFIMANAGER_H
+#ifndef ESP32WIFIMANAGER_H
 #define ESP32WIFIMANAGER_H
 
 #include <stdint.h>

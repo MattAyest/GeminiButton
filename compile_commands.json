@@ -1,8 +1,0 @@
-[
-    {
-        "command": "/usr/bin/gcc -o .pio/build/native/libfc7/Unity/unity.o -c -std=gnu11 -Wall -Wextra -DPLATFORMIO=60118 -DUNITY_INCLUDE_CONFIG_H -Ilib/Esp32WifiManager -Ilib/MemoryPool -I.pio/libdeps/native/Unity/src -I/home/matt/.platformio/platforms/native/builder/.pio/libdeps/native/fff/src -I.pio/build/native/unity_config_build .pio/libdeps/native/Unity/src/unity.c",
-        "directory": "/home/matt/Projects/GeminiButton",
-        "file": ".pio/libdeps/native/Unity/src/unity.c",
-        "output": ".pio/build/native/libfc7/Unity/unity.o"
-    }
-]

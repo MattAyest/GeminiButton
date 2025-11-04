@@ -3,11 +3,15 @@
     Creator: Matthew Ayestaran
     date:19/10/2025
 */
+// Add these to the top of Esp32WifiManager.c
 #include "Esp32WifiManager.h"
+#include "esp_err.h"
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/event_groups.h"
 #include "nvs_flash.h"
 
 // event handler and flags
