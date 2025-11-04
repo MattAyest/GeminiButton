@@ -8,22 +8,17 @@
 #define MEDIUM_BLOCK_SIZE 512
 #define LARGE_BLOCK_SIZE 2048
 
-// PROTOTYPES
-PoolMemoryInfo *Pool_Ini(size_t num_small_blocks, size_t num_medium_blocks,
-                         size_t num_large_blocks);
-void Pool_Destroy(PoolMemoryInfo *handle);
-void *Pool_Alloc(size_t Memory_Size, PoolMemoryInfo *handle);
-void Pool_Free(void *Packet, PoolMemoryInfo *handle);
-
 static void *Internal_Pool_Memory_Block_Ini(size_t Block_Number,
                                             size_t Block_Size,
                                             void *First_Memory_Block);
+
 static void *Internal_Pool_Allocation(PoolInfo *First_Memory_Block);
 
 // FUNCTIONS
 PoolMemoryInfo *Pool_Ini(size_t num_small_blocks, size_t num_medium_blocks,
                          size_t num_large_blocks) {
   PoolMemoryInfo *Memory_Handler = malloc(sizeof(PoolMemoryInfo));
+
   if (Memory_Handler == NULL) {
     return NULL; // allocation failed
     // free main memory allocation

@@ -3,4 +3,5 @@
 .vscode
 
 # Local secrets - DO NOT COMMIT
-secrets.ini
+secrets.ini.pio/
+.cache/

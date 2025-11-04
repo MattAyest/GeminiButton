@@ -1,8 +1,8 @@
 [
     {
-        "command": "/usr/bin/gcc -o .pio/build/native/libcfc/MemoryPool/MemoryPool.o -c -std=gnu11 -Wall -Wextra -DPLATFORMIO=60118 -I/home/matthew/.platformio/platforms/native/builder/lib/WifiManager -Ilib/MemoryPool -I/home/matthew/.platformio/platforms/native/builder/test/test_wifi_manager/fakes -I/home/matthew/.platformio/packages/framework-espidf/components/esp_common/include -I/home/matthew/.platformio/packages/framework-espidf/components/esp_system/include -I/home/matthew/.platformio/packages/framework-espidf/components/log/include -I/home/matthew/.platformio/packages/framework-espidf/components/newlib/platform_include -I/home/matthew/.platformio/packages/framework-espidf/components/freertos/config/include/freertos -I/home/matthew/.platformio/packages/framework-espidf/components/freertos/esp_additions/include/freertos -I/home/matthew/.platformio/packages/framework-espidf/components/freertos/FreeRTOS-Kernel-SMP/include -I.pio/build/esp32s3_gemini/config lib/MemoryPool/MemoryPool.c",
-        "directory": "/home/matthew/Desktop/Projects/GeminiButton",
-        "file": "lib/MemoryPool/MemoryPool.c",
-        "output": ".pio/build/native/libcfc/MemoryPool/MemoryPool.o"
+        "command": "/usr/bin/gcc -o .pio/build/native/libfc7/Unity/unity.o -c -std=gnu11 -Wall -Wextra -DPLATFORMIO=60118 -DUNITY_INCLUDE_CONFIG_H -Ilib/Esp32WifiManager -Ilib/MemoryPool -I.pio/libdeps/native/Unity/src -I/home/matt/.platformio/platforms/native/builder/.pio/libdeps/native/fff/src -I.pio/build/native/unity_config_build .pio/libdeps/native/Unity/src/unity.c",
+        "directory": "/home/matt/Projects/GeminiButton",
+        "file": ".pio/libdeps/native/Unity/src/unity.c",
+        "output": ".pio/build/native/libfc7/Unity/unity.o"
     }
 ]

@@ -1,5 +1,7 @@
+import os
 Import("env")
-env.Append(CPPDEFINES=[("UNIT_TESTING", 1)]) # Example define for tests
-# This ensures build flags are part of the compilation database generation
+
+# include toolchain paths
 env.Replace(COMPILATIONDB_INCLUDE_TOOLCHAIN=True)
-env.Replace(COMPILATIONDB_USE_ABSOLUTE_PATHS=True)
+
+env.Replace(COMPILATIONDB_PATH=os.path.join("$PROJECT_DIR", "compile_commands.json"))
