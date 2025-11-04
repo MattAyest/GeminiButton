@@ -13,7 +13,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/event_groups.h"
 #include "nvs_flash.h"
-
+#include <string.h>
 // event handler and flags
 static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0 // This is just 1
@@ -57,7 +57,7 @@ esp_err_t wifi_manager_wait_for_connection(TickType_t xTicksToWait) {
 // Event handler and Dispatcher to go to correct function when event takes place
 static void wifi_event_handler(void *arg, esp_event_base_t event_base,
                                int32_t event_id, void *event_data) {
-  if (event_base == WIFI_EVENT) {
+  if (strcmp(event_base, WIFI_EVENT) == 0) {
     switch (event_id) { // switch for what function to call
     case WIFI_EVENT_STA_START:
       handle_sta_start();
@@ -68,7 +68,8 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     default:
       break; // Other wifi events we don't care about until expansion
     }
-  } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
+  } else if (strcmp(event_base, IP_EVENT) == 0 &&
+             event_id == IP_EVENT_STA_GOT_IP) {
     handle_sta_got_ip(event_data);
   }
 }
