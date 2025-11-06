@@ -4,13 +4,14 @@
  *Date: 10/25/25
  * */
 
-// test/test_wifi_manager/fakes/fake_nvs_flash.c
-// #include "nvs_flash.h" // Include real header for types/return codes
+#ifndef FAKE_NVS_FLASH_H
+#define FAKE_NVS_FLASH_H
 
-#include "fff.h"
-#include <nvs_flash.h>
+#include "fake_esp_common.h"
+#include "nvs_flash.h"
 
-typedef int esp_rtt_t;
+// functions called as fakes due to fake_esp_common
+esp_err_t nvs_flash_init(void);
+esp_err_t nvs_flash_erase(void);
 
-FAKE_VALUE_FUNC(esp_err_t, nvs_flash_init);
-FAKE_VALUE_FUNC(esp_err_t, nvs_flash_erase);
+#endif

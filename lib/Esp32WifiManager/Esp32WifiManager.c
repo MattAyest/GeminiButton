@@ -73,7 +73,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
     handle_sta_got_ip(event_data);
   }
 }
-// what functions do I need and how can I write them for unit testing
+// function to conduct all initial
 void wifi_manager_init_station(const wifi_manager_config_t *config) {
   s_wifi_event_group = xEventGroupCreate(); // Flag holder
 
