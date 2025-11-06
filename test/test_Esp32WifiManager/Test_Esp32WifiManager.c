@@ -20,9 +20,17 @@ FAKE_VALUE_FUNC(EventBits_t, xEventGroupClearBits, EventGroupHandle_t,
 
 #include "Esp32WifiManager.h"
 #include "fff.h"
+#include "nvs_flash.h"
 #include <unity.h>
 
-void setUp(void) { /* Reset fakes */ }
+// fake functions
+FAKE_VALUE_FUNC(esp_err_t, nvs_flash_init())
+
+void setUp(void) {
+  /* Reset fakes */
+  // RESET_FAKE(function name)
+  nvs_flash_init_fake.return_val = ESP_OK;
+}
 void tearDown(void) {}
 
 void test_YourFirstWifiTest(void) {
@@ -30,7 +38,10 @@ void test_YourFirstWifiTest(void) {
   TEST_ASSERT_TRUE(1); // Placeholder test
 }
 
-int main(void) {
+// testing the wifi_manager_init_station
+void test_wifi_manager_init_station() {}
+
+int app_main(void) {
   UNITY_BEGIN();
   RUN_TEST(test_YourFirstWifiTest);
   // Add RUN_TEST for all your wifi tests
