@@ -23,6 +23,17 @@ FAKE_VALUE_FUNC(EventBits_t, xEventGroupClearBits, EventGroupHandle_t,
 #include "nvs_flash.h"
 #include <unity.h>
 
+#include "Fakes/esp_err.h"
+#include "Fakes/esp_event.h"
+#include "Fakes/esp_log.h"
+#include "Fakes/esp_netif.h"
+#include "Fakes/esp_wifi.h"
+#include "Fakes/freertos/FreeRTOS.h"
+#include "Fakes/freertos/event_groups.h"
+#include "Fakes/nvs_flash.h"
+
+DEFINE_FFF_GLOBALS;
+
 // fake functions
 FAKE_VALUE_FUNC(esp_err_t, nvs_flash_init())
 

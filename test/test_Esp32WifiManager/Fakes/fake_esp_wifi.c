@@ -3,8 +3,11 @@
  * creator:Matthew Ayestaran
  * date:10/25/2025
  */
+#include "esp_wifi.h" // Include its own header
 
-// Add these defines inside the header
-#define WIFI_EVENT "WIFI_EVENT"
-#define WIFI_EVENT_STA_START 1
-#define WIFI_EVENT_STA_DISCONNECTED 2
+FAKE_VALUE_FUNC(esp_err_t, esp_wifi_init, const wifi_init_config_t *);
+FAKE_VALUE_FUNC(esp_err_t, esp_wifi_set_mode, wifi_mode_t);
+FAKE_VALUE_FUNC(esp_err_t, esp_wifi_set_config, esp_interface_t,
+                wifi_config_t *);
+FAKE_VALUE_FUNC(esp_err_t, esp_wifi_start);
+FAKE_VALUE_FUNC(esp_err_t, esp_wifi_connect);

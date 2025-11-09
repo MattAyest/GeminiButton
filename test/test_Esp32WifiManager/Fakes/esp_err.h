@@ -2,10 +2,9 @@
 #define FAKE_ESP_ERR_H
 
 #include <assert.h>
-#include <stdio.h> // For printf
+// #include <stdio.h> // For printf
 
 // Fake macro to just check the error code
-#define ESP_ERR_TIMEOUT 0x107
 #define ESP_ERROR_CHECK(x) assert(x == 0)
 
 #endif

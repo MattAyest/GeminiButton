@@ -16,7 +16,7 @@
 #include <string.h>
 // event handler and flags
 static EventGroupHandle_t s_wifi_event_group;
-#define WIFI_CONNECTED_BIT BIT0 // This is just 1
+#define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 
 // PROTOTYPES
